@@ -68,7 +68,7 @@ plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases)) + geom_point(col = 
   ggtitle("Variants of Concern (VOC)") + xlab("Logging Date") +
   ylab("Cumulative Case Counts") + scale_x_date(date_labels = "%b-%Y")
 
-ggsave("cumulative_lineage_counts", plot = plot_1, device = "pdf", width=11, height=8.5)
+
 
 mutations <- as.vector(scan(args$mutation_watchlist, character(), quote = ""))
 
@@ -122,8 +122,6 @@ plot_2 <- ggplot(rolling_cases_muts, aes(x = date, y = cumcases)) + geom_point(c
   ggtitle("Mutations of Interest") + xlab("Logging Date") +
   ylab("Cumulative Case Counts") + scale_x_date(date_labels = "%b-%Y")
 
-ggsave("cumulative_mutation_counts", plot = plot_2, device = "pdf", width=11, height=8.5)
-
 rolling_cases$designation <- "lineage"
 rolling_cases_muts$designation <- "mutation"
 
@@ -143,9 +141,6 @@ plot_3 <- ggplot(grouped_lin, aes(x = time_cat, y = cat_counts, fill = time_cat)
   ylim(c(0, max(grouped_lin$cat_counts) + 35)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                                                        panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
-
-ggsave("VOC_lineages_by_week", plot = plot_3, device = "pdf", width=11, height=8.5)
-
 grouped_mut <- all_to_monitor[all_to_monitor$designation == "mutation",] %>%
   group_by(lineage, time_cat) %>% summarise(cat_counts = sum(counts))
 
@@ -153,11 +148,9 @@ plot_4 <- ggplot(grouped_mut, aes(x = time_cat, y = cat_counts, fill = time_cat)
   facet_wrap(~lineage) + geom_text(aes(label=cat_counts), position=position_dodge(width=0.9), vjust=-0.25) +
   xlab("Time Category") + ylab("Case Counts") + scale_fill_manual("Time Category",
                                                                   values = c("dark blue", "dark red")) +
-  ggtitle(paste("Mutations of Interest as of ", format(Sys.Date(), "%b-%d-%Y")) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-                                                                                        panel.background = element_blank(), axis.line = element_line(colour = "black")))
-
-ggsave("Mutations_of_interest_by_week", plot = plot_4, device = "pdf", width=11, height=8.5)
-
+  ggtitle(paste("Mutations of Concern (VOC) as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  ylim(c(0, max(grouped_lin$cat_counts) + 35)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                                                       panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 colnames(muts_frame_keep) <- c("sample", "mutation")
 
@@ -184,8 +177,6 @@ mut_by_line_2 <- ggplot(all_lin_and_mut, aes(x = mutation, y = counts, fill = PA
         panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 plot_5 <- ggarrange(mut_by_line_1, mut_by_line_2, nrow = 2)
-
-ggsave("Distribution_lineages_by_mutation", plot = plot_5, device = "pdf", width=11, height=8.5)
 
 mut_lin_rolling_date <- subset(mut_merged, select = c(WGS_Id, PANGO_lineage_updated,
                                                       date, lineage))
@@ -237,8 +228,14 @@ plot_7 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, co
                   col = "black") + ggtitle("Cumulative Counts of Lineages with Mutations of Interest, B.1.1.7") +
   scale_x_date(date_labels = "%b-%Y")
 
-ggsave("cumulative_lineage_counts_watchlist_mutations_no_b117", plot = plot_6, device = "pdf", width=11, height=8.5)
-ggsave("cumulative_lineage_counts_watchlist_mutations_b117", plot = plot_7, device = "pdf", width=11, height=8.5)
+
+# ggsave("cumulative_lineage_counts", plot = plot_1, device = "pdf", width=11, height=8.5)
+# ggsave("cumulative_mutation_counts", plot = plot_2, device = "pdf", width=11, height=8.5)
+# ggsave("VOC_lineages_by_week", plot = plot_3, device = "pdf", width=11, height=8.5)
+# ggsave("Mutations_of_interest_by_week", plot = plot_4, device = "pdf", width=11, height=8.5)
+# ggsave("Distribution_lineages_by_mutation", plot = plot_5, device = "pdf", width=11, height=8.5)
+# ggsave("cumulative_lineage_counts_watchlist_mutations_no_b117", plot = plot_6, device = "pdf", width=11, height=8.5)
+# ggsave("cumulative_lineage_counts_watchlist_mutations_b117", plot = plot_7, device = "pdf", width=11, height=8.5)
 
 
 plot_list <- mget(ls(pattern = "^plot*"))
