@@ -23,7 +23,11 @@ new_frame = snp_dists[[x[0] in x[1] for x in zip(snp_dists['sam_1'], snp_dists['
 identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance == 0]
 non_identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance != 0]
 
-diff_name_identical = snp_dists[snp_dists.apply(lambda x: x.sam_1 not in x.comparing, axis=1)][snp_dists.distance == 0]
+
+diff_name_identical = snp_dists[~snp_dists.sam_1.isin(identical_frame.sam_1)]
+diff_name_identical = diff_name_identical[~diff_name_identical.sam_1.isin(identical_frame.comparing)]
+diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1 not in x.comparing, axis=1)][snp_dists.distance == 0]
+
 if len(diff_name_identical) != 0:
     diff_name_identical.to_csv("different_names_identical.csv", index=False)
 
@@ -45,9 +49,11 @@ n_counts_frame = pd.DataFrame(sam_n_counts)
 
 if n_counts_frame.shape[0] != 0:
     n_counts_frame.sort_values(by=['sample_name'], ascending=True).to_csv("identical_sequences.csv", index=False)
-with open("Non-identical sequences.txt", "w") as handle:
-    for lines in non_identical:
-        handle.write(lines+"\n")
+
+if len(non_identical) != 0:
+	with open("Non-identical sequences.txt", "w") as handle:
+		for lines in non_identical:
+			handle.write(lines+"\n")
 
 print("Identical Sequences:")
 if n_counts_frame.shape[0] != 0:
