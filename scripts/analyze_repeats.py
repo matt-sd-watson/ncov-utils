@@ -23,13 +23,16 @@ new_frame = snp_dists[[x[0] in x[1] for x in zip(snp_dists['sam_1'], snp_dists['
 identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance == 0]
 non_identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance != 0]
 
+diff_name_identical = snp_dists[snp_dists.apply(lambda x: x.sam_1 not in x.comparing, axis=1)][snp_dists.distance == 0]
+if len(diff_name_identical) != 0:
+    diff_name_identical.to_csv("different_names_identical.csv", index=False)
+
+
 fasta_sequences = SeqIO.parse(open(args.multi_fasta), 'fasta')
 
 sam_n_counts = []
 non_identical = []
 for record in fasta_sequences:
-# if the record is in the identical frame, include the N counts for comparison
-# otherwise, add the ide to the lsit of non-identical
     if record.id in identical_frame.sam_1.unique() or record.id in identical_frame.comparing.unique():
         keys = ['sample_name', 'N_counts']
         values = [record.id, record.seq.count("N")]
@@ -40,17 +43,15 @@ for record in fasta_sequences:
 
 n_counts_frame = pd.DataFrame(sam_n_counts)
 
-os.chdir(args.output_dir)
 if n_counts_frame.shape[0] != 0:
     n_counts_frame.sort_values(by=['sample_name'], ascending=True).to_csv("identical_sequences.csv", index=False)
-if len(non_identical) != 0:
-    with open("Non-identical sequences.txt", "w") as handle:
-        for lines in non_identical:
-            handle.write(lines+"\n")
+with open("Non-identical sequences.txt", "w") as handle:
+    for lines in non_identical:
+        handle.write(lines+"\n")
 
 print("Identical Sequences:")
 if n_counts_frame.shape[0] != 0:
-    print(n_counts_frame.sort_values(by=['sample_name'], ascending=True).to_string(index=False))
+    print(n_counts_frame.sort_values(by=['sample_name'], ascending=True))
 else:
     print("None")
 
@@ -59,12 +60,13 @@ if len(non_identical) != 0:
     for elem in non_identical:
         print(elem)
 else:
-	print("None")
+    print("None")
 
-# group the samples by their common name and find the first sample with the fesert N counts
-n_counts_frame['standard_name'] = n_counts_frame['sample_name'].map(lambda x: x.rstrip('-v2|-v3|-v4|-v5|-v6'))
-grouped = n_counts_frame.groupby(by=['standard_name'])
-min_frame = n_counts_frame.loc[n_counts_frame.groupby('standard_name').N_counts.idxmin()][["sample_name", "N_counts"]]
+
+def get_grouping(data_frame):
+    data_frame['standard_name'] = data_frame['sample_name'].map(lambda x: x.rstrip('-v2|-v3|-v4|-v5|-v6'))
+    min_frame = data_frame.loc[data_frame.groupby('standard_name').N_counts.idxmin()][["sample_name", "N_counts"]]
+    return data_frame, min_frame
 
 fasta_mixed = SeqIO.parse(open(args.fasta_mixed), 'fasta')
 nuc = ['A', 'T', 'C', 'G', 'N']
@@ -72,7 +74,6 @@ mixed_post = []
 pos = {}
 for record in fasta_mixed:
     mixed_pos = []
-# if there are any mixed positions in the SNPs only fasta, append them to the data frame
     if record.id not in non_identical and record.id != "MN908947":
         count = 0
         for index, item in enumerate(record.seq):
@@ -89,12 +90,15 @@ for record in fasta_mixed:
 
 mixed_counts = pd.DataFrame(mixed_post)
 positions_frame = pd.DataFrame(pos.items(), columns=['sample_name', 'mixed_positions'])
-final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left').\
-    merge(n_counts_frame, on='sample_name', how='left').drop(['standard_name'], axis=1)
-# assign a designation for sample exclusion based on the N counts
-final_frame['exclude_analysis'] = np.where(final_frame['sample_name'].isin(min_frame['sample_name']), "N", "Y")
-if mixed_counts.shape[0] != 0:
-    final_frame.sort_values(by=['sample_name']).to_csv("identical_sequences.csv", index=False)
+
+
+if n_counts_frame.shape[0] != 0:
+    stripped_frame, grouped_min_frame = get_grouping(n_counts_frame)
+    final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left'). \
+        merge(stripped_frame, on='sample_name', how='left').drop(['standard_name'], axis=1)
+    final_frame['exclude_analysis'] = np.where(final_frame['sample_name'].isin(grouped_min_frame['sample_name']), "N", "Y")
+    if mixed_counts.shape[0] != 0:
+        final_frame.sort_values(by=['sample_name']).to_csv("identical_sequences.csv", index=False)
 
 
 
