@@ -106,7 +106,8 @@ pl.2 <- pl.1 %<+% meta.df +
         legend.spacing.x = unit(0.3, 'cm'),
         legend.key.size = unit(3,"lines")) +
   scale_color_manual("Location", values=cols) +
-  guides(color = guide_legend(override.aes = list(size = 1.75)))
+  guides(color = guide_legend(override.aes = list(size = 1.75))) +
+  ggtitle(args$lineage_id)
 
 setwd(args$output_directory)
 
