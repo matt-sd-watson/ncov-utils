@@ -12,6 +12,7 @@ library(Biostrings)
 library(TraMineR)
 library(ggplot2)
 library(argparse)
+library(lubridate)
 
 ## Inputs: 
 ## - a tree in Newick format generated through iqtree
@@ -50,13 +51,6 @@ sample_no_pass <- tr.df.labs[!tr.df.labs$label %in% qc50$WGS_Id,]
 tree <- drop.tip(tree, sample_no_pass$label)
 
 # sub sample for B.1.1.7 because the number of samples is too large to view in a tree
-if (args$lineage_id == "B.1.1.7") {
-  random_remove <- sample_n(tr.df.labs, as.integer(0.85*nrow(tr.df.labs)))
-} else {
-  random_remove <- sample_n(tr.df.labs, 0)
-}
-
-tree <- drop.tip(tree, random_remove$label)
 
 ## Create a dataframe of the tree
 tr.df <- fortify(tree)
@@ -65,28 +59,40 @@ tr.df.labs <- tr.df %>%
   filter(isTip == "TRUE") %>%
   select(label)
 
-meta.df <- tr.df.labs %>%
-  mutate(label.2 = ifelse(grepl("PHLON2", label), "ON-PHO", "non-PHO"))
+qc50$Date <- as.Date(qc50$upload_date, format = "%m/%d/%Y")
+date_cat <- interval(ymd(Sys.Date() - 7), ymd(Sys.Date()))
+
+qc50$date_cat <- ifelse(qc50$Date %within% date_cat, "Latest Week", "All Past Weeks")
+
+qc50_keep <- subset(qc50, select = c(WGS_Id, Date, date_cat))
+
+meta.df <- merge(tr.df.labs, qc50_keep, by.x = "label", by.y = "WGS_Id")
 
 # treat the countries as a factor for plotting
-meta.df$label.2 <- as.factor(meta.df$label.2)
+meta.df$date_cat <- as.factor(meta.df$date_cat)
 
-## Define colours for tree annotation
-#3 must have the same name annotations as the label.2 created above
-cols <- c("ON-PHO" = "#08E8DE",  "non-PHO" = "dark blue")
+# if the lineage is B.1.1.7, set the background tips to a transparent grey
+# otherwise, have a darker grey for lineage trees with fewer samples
+grey_trans <- rgb(179, 179, 179, max = 255, alpha = 45)
 
-tr.df$nml_lab <- paste("ON-PHL", str_split_fixed(tr.df$label, "PHLON|-SARS", 4)[,2],
-                       str_split_fixed(tr.df$label, "PHLON|-SARS", 4)[,3], sep = "-")
+cols <- c()
+## Define colours for tree annotation depending on lineage identifier
+if (args$lineage_id == "B.1.1.7") {
+  cols <- c("Latest Week" = "dark blue",  "All Past Weeks" = grey_trans)
+} else {
+  cols <- c("Latest Week" = "dark blue",  "All Past Weeks" = "grey60")
+}
 
-meta.df <- merge(meta.df, tr.df, by.x = "label", by.y = "label", all = TRUE)
+meta.df$nml_lab <- paste("ON-PHL", str_split_fixed(meta.df$label, "PHLON|-SARS", 4)[,2],
+                         str_split_fixed(meta.df$label, "PHLON|-SARS", 4)[,3], sep = "-")
 
 pl.1 <- ggtree(tree, size = 0.25)
 
 pl.2 <- pl.1 %<+% meta.df +
-  geom_tippoint(aes(x=x+0.000001, subset=label.2 == "ON-PHO", label = label, colour = label.2),  size = 1.2, shape = 16) +
-  geom_tippoint(aes(x=x+0.000001, subset=label.2 == "non-PHO", label = label.2, colour = label.2),  size = 1.2, shape = 16) +  
-  geom_tiplab(aes(x=x+0.000001, subset=label.2 == "ON-PHO", label = nml_lab),  size = 1.5, offset = 0.000005) +
-  geom_tiplab(aes(x=x+0.000001, subset=label.2 == "non-PHO", label = label),  size = 1.5, offset = 0.000005) +
+  geom_tippoint(aes(x=x+0.000001, subset=date_cat == "Latest Week", label = label, colour = date_cat),  size = 1.2, shape = 16) +
+  geom_tippoint(aes(x=x+0.000001, subset=date_cat == "All Past Weeks", label = label, colour = date_cat),  size = 1.2, shape = 16) +  
+  # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "ON-PHO", label = nml_lab),  size = 1.5, offset = 0.000005) +
+  # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "non-PHO", label = label),  size = 1.5, offset = 0.000005) +
   theme(plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm"),
         legend.text=element_text(size=6),
         legend.position = c(0.85, 0.6),
@@ -106,10 +112,14 @@ setwd(args$output_directory)
 
 pl.2
 ## SAVE annotated tree
-pdf(paste(paste(args$lineage_id, "_phylo_tree_", sep = ""), format(Sys.Date(), '%d%b%Y'), ".pdf", sep=""), 
-    width = 11, height = 15)
-pl.2
+
+plot_name <- paste(paste(args$lineage_id, "_phylo_tree_", sep = ""), format(Sys.Date(), '%d%b%Y'), ".pdf", sep="")
+
+ggsave(filename = plot_name, plot = pl.2, width = 11, height = 15)
+
 dev.off()
+rm(list = ls())
+
 
 
 
