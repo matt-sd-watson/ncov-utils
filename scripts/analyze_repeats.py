@@ -4,9 +4,20 @@ import argparse
 import os
 import numpy as np
 
+"""
+This script processes inputs for ivar repeats to assess their similarity and coverage statistics
+Inputs required: 
+	- Multi-fasta for the sampes to analyze
+	- CSV output of snp-dists run with molten format and ambiguous bases excluded
+	- SNPs only FASTA generated through snp-dists with ambiguous bases enabled
+Outputs: 
+	- Various CSV files with filenames depending on their similarity, with ambiguous bases (N) counts and mixed
+	SNP positions
+"""
+
 parser = argparse.ArgumentParser(description='Analyze a set of sample repeats for similarity and coverage statistics')
 parser.add_argument('--multi_fasta', '-f', type=str, help='Multi-fasta to evaluate sequences from', required=True)
-parser.add_argument('--snp_dists', '-s', type=str, help='CSV file of SNP differenes from snp-dists in molten format',
+parser.add_argument('--snp_dists', '-s', type=str, help='CSV file of SNP differences from snp-dists in molten format',
                     required=True)
 parser.add_argument('--output_dir', '-o', type=str, help='output directory for single modified fasta files',
                     required=True)
@@ -106,6 +117,4 @@ if n_counts_frame.shape[0] != 0:
     if mixed_counts.shape[0] != 0:
         final_frame.sort_values(by=['sample_name']).to_csv("identical_sequences.csv", index=False)
 
-
-
-
+	
