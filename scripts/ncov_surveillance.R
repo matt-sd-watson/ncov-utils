@@ -193,7 +193,7 @@ mut_lin_date_grouped_final <- mut_lin_date_grouped %>% group_by(mutation, lineag
 mut_lin_date_grouped_final_no_b117 <- mut_lin_date_grouped_final[mut_lin_date_grouped_final$lineage != "B.1.1.7",]
 
 # get the most recent date for each of the lineages by mutation
-max_date_each_lin_no_b117 <- mut_lin_date_grouped_final_no_b117 %>% group_by(lineage) %>% filter(date == max(date))
+max_date_each_lin_no_b117 <- mut_lin_date_grouped_final_no_b117 %>% group_by(mutation, lineage) %>% filter(date == max(date))
 
 # plot the lineages separately for each mutation
 # include a label at the most recent date of logging for each mutation
@@ -213,7 +213,7 @@ plot_6 <- ggplot(mut_lin_date_grouped_final_no_b117, aes(x = date, y = cumcases,
 mut_lin_date_grouped_final_b117 <- mut_lin_date_grouped_final[mut_lin_date_grouped_final$lineage == "B.1.1.7",]
 
 # get the most recent date for each of the lineages by mutation to assign labels
-max_date_each_lin_b117 <- mut_lin_date_grouped_final_b117 %>% group_by(lineage) %>% filter(date == max(date))
+max_date_each_lin_b117 <- mut_lin_date_grouped_final_b117 %>% group_by(mutation, lineage) %>% filter(date == max(date))
 
 plot_7 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, col = lineage)) +
   geom_point(data = max_date_each_lin_b117, aes(color = lineage)) +
