@@ -34,7 +34,7 @@ new_frame = snp_dists[[x[0] in x[1] for x in zip(snp_dists['sam_1'], snp_dists['
 identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance == 0]
 non_identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance != 0]
 
-
+# if the names are not similar or identical but the same distances are identical, write separately
 diff_name_identical = snp_dists[~snp_dists.sam_1.isin(identical_frame.sam_1)]
 diff_name_identical = diff_name_identical[~diff_name_identical.sam_1.isin(identical_frame.comparing)]
 diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1 not in x.comparing, axis=1)][snp_dists.distance == 0]
@@ -45,6 +45,7 @@ if len(diff_name_identical) != 0:
 
 fasta_sequences = SeqIO.parse(open(args.multi_fasta), 'fasta')
 
+# get a count of the ambiguous (N) positions for identical sequences, or add the id to the not identical category
 sam_n_counts = []
 non_identical = []
 for record in fasta_sequences:
@@ -79,12 +80,13 @@ if len(non_identical) != 0:
 else:
     print("None")
 
-
+# group the frame by similar name, and get the sample with the lowest n count per group
 def get_grouping(data_frame):
     data_frame['standard_name'] = data_frame['sample_name'].map(lambda x: x.rstrip('-v2|-v3|-v4|-v5|-v6'))
     min_frame = data_frame.loc[data_frame.groupby('standard_name').N_counts.idxmin()][["sample_name", "N_counts"]]
     return data_frame, min_frame
 
+# get the number and identity of mixed (non ATCGN) positions from the mixed SNPs FASTA
 fasta_mixed = SeqIO.parse(open(args.fasta_mixed), 'fasta')
 nuc = ['A', 'T', 'C', 'G', 'N']
 mixed_post = []
@@ -108,7 +110,8 @@ for record in fasta_mixed:
 mixed_counts = pd.DataFrame(mixed_post)
 positions_frame = pd.DataFrame(pos.items(), columns=['sample_name', 'mixed_positions'])
 
-
+# merge mixed counts and positions together, and create exclude analysis category
+# if the sample has the lowest N count in the naming group, do not exclude from analysis
 if n_counts_frame.shape[0] != 0:
     stripped_frame, grouped_min_frame = get_grouping(n_counts_frame)
     final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left'). \
