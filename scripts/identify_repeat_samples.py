@@ -6,8 +6,8 @@ import argparse
 This script takes an input a directory containing output ncov-19 samples from the ivar pipeline
 For PHO samples, the way to designate a repeat sample is to place -v# after the unique WGS_Id, where
 # is the repeat number
-The script is esigned to find all previous versions of the sample 
-i.e. if sample-v3 is in the directory, the output will save sample, and sample-v2
+The script is designed to find all previous versions of the sample 
+i.e. if sample-v3 is in the directory, the output will save sample, sample-v2, and sample-v3
 
 output: 
 	= txt file containing all the sample repeat names as well as the original and previous sample names. 
