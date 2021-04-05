@@ -21,18 +21,23 @@ args = parser.parse_args()
 
 files = [f for f in listdir(args.input_dir) if isfile(join(args.input_dir, f))]
 
+# get all unique names of samples that are repeats, denoted by -v#
 repeat_names = set([i.split('_S')[0] for i in files if '-v' in i])
 
+# create a dict of the repeat name and its repeat number (i.e. -v3 = 3)
 strip_number = [i.split('-v')[1] for i in repeat_names]
 strip_dict = dict(zip(repeat_names, strip_number))
 
 total_names = []
 
 for key, value in strip_dict.items():
+    # append the original sample name
     total_names.append(key.split('-v')[0])
     if int(value) <= 2:
+    # if the repeat is -v2, append it
         total_names.append(str(key.split('-v')[0] + "-v" + str(2)))
     else:
+    # is the repeat is -v3 or higher, append all previous repeat names in addition to latest/highest repeat
         for i in range(2, int(value) + 1, 1):
             total_names.append(str(key.split('-v')[0] + "-v" + str(i)))
 
