@@ -36,6 +36,7 @@ args <- parser$parse_args()
 
 tree <- read.tree(args$input_tree)
 qc50 <- read.table(args$qc50_list, header = T, sep = ',', fill = TRUE, quote = "")
+qc50 <- qc50[!is.na(qc50$collection_date),]
 
 tree <- drop.tip(tree, "MN908947")
 
