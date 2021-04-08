@@ -64,9 +64,9 @@ plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases)) + geom_point(col = 
         plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black")) +
-  ggtitle("Variants of Concern (VOC)") + xlab("Logging Date") +
+  ggtitle(paste("Watchlist lineages (VoC, VoI) as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  xlab("Logging Date") +
   ylab("Cumulative Case Counts") + scale_x_date(date_labels = "%b-%Y")
-
 
 
 mutations <- as.vector(scan(args$mutation_watchlist, character(), quote = ""))
@@ -118,7 +118,8 @@ plot_2 <- ggplot(rolling_cases_muts, aes(x = date, y = cumcases)) + geom_point(c
         plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black")) +
-  ggtitle("Mutations of Interest") + xlab("Logging Date") +
+  ggtitle(paste("Watchlist mutations as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  xlab("Logging Date") +
   ylab("Cumulative Case Counts") + scale_x_date(date_labels = "%b-%Y")
 
 rolling_cases$designation <- "lineage"
@@ -136,7 +137,7 @@ plot_3 <- ggplot(grouped_lin, aes(x = time_cat, y = cat_counts, fill = time_cat)
   facet_wrap(~lineage) + geom_text(aes(label=cat_counts), position=position_dodge(width=0.9), vjust=-0.25) +
   xlab("Time Category") + ylab("Case Counts") + scale_fill_manual("Time Category",
                                                                   values = c("dark blue", "dark red")) +
-  ggtitle(paste("Variants of Concern (VOC) as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  ggtitle(paste("Watchlist lineage weekly counts as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
   ylim(c(0, max(grouped_lin$cat_counts) + 35)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                                                        panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
@@ -147,7 +148,7 @@ plot_4 <- ggplot(grouped_mut, aes(x = time_cat, y = cat_counts, fill = time_cat)
   facet_wrap(~lineage) + geom_text(aes(label=cat_counts), position=position_dodge(width=0.9), vjust=-0.25) +
   xlab("Time Category") + ylab("Case Counts") + scale_fill_manual("Time Category",
                                                                   values = c("dark blue", "dark red")) +
-  ggtitle(paste("Mutations of Concern (VOC) as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  ggtitle(paste("Watchlist mutation weekly counts as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
   ylim(c(0, max(grouped_lin$cat_counts) + 35)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                                                        panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
@@ -165,7 +166,8 @@ mut_by_line_1 <- ggplot(all_lin_and_mut, aes(x = mutation, y = counts, fill = PA
   geom_bar(position="dodge", stat="identity") +
   xlab("AA Mutation") + ylab("Case Counts") + labs(fill='PANGOLIN lineage') +
   geom_text(aes(label=counts), position = position_dodge(width = 0.9), vjust = -0.25, size = 4) +
-  ggtitle("Mutations of Interest") + ylim(c(0, max(all_lin_and_mut$counts) + 50)) +
+  ggtitle(paste("Watchlist mutation lineage distribution as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  ylim(c(0, max(all_lin_and_mut$counts) + 50)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
@@ -206,7 +208,8 @@ plot_6 <- ggplot(mut_lin_date_grouped_final_no_b117, aes(x = date, y = cumcases,
         panel.background = element_blank(), axis.line = element_line(colour = "black")) +
   geom_text_repel(data = max_date_each_lin_no_b117,
                   aes(label = paste(lineage, paste("(", cumcases, ")", sep = ""), sep = " ")), hjust = 0, nudge_x = 0.05, size = 3,
-                  col = "black") + ggtitle("Cumulative Counts of Lineages with Mutations of Interest, no B.1.1.7") +
+                  col = "black") +
+  ggtitle("Cumulative Counts of Lineages with Mutations of Interest, no B.1.1.7") +
   scale_x_date(date_labels = "%b-%Y")
 
 mut_lin_date_grouped_final_b117 <- mut_lin_date_grouped_final[mut_lin_date_grouped_final$lineage == "B.1.1.7",]
@@ -224,7 +227,8 @@ plot_7 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, co
         panel.background = element_blank(), axis.line = element_line(colour = "black")) +
   geom_text_repel(data = max_date_each_lin_b117,
                   aes(label = paste(lineage, paste("(", cumcases, ")", sep = ""), sep = " ")), hjust = 0, nudge_x = 0.05, size = 3,
-                  col = "black") + ggtitle("Cumulative Counts of Lineages with Mutations of Interest, B.1.1.7") +
+                  col = "black") +
+  ggtitle("Cumulative Counts of Lineages with Mutations of Interest, B.1.1.7") +
   scale_x_date(date_labels = "%b-%Y")
 
 ### lineages with large single day increases over past month
@@ -259,7 +263,8 @@ plot_8 <- ggplot(rolling_avg[rolling_avg$PANGO_lineage_updated %in% highest_rate
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black")) +
   scale_x_date(date_labels = "%b-%Y") +
-  ggtitle("Greatest single-day rates of change, past month, non-VoC lineages")
+  ggtitle("Greatest single-day rates of change, past month, non-VoC lineages") +
+  ggtitle(paste("Lineages w/ highest daily rates, past month, non-VoC lineages, as of ", format(Sys.Date(), "%b-%d-%Y"), sep=""))
 
 
 # both 501 and 484
