@@ -50,7 +50,6 @@ tr.df.labs <- as.data.frame(tr.df) %>%
 # if the sample is not on the qc50 list, drop it from the tree
 sample_no_pass <- as.data.frame(tr.df.labs[!tr.df.labs$label %in% qc50$WGS_Id,])
 colnames(sample_no_pass) <- "label"
-print(sample_no_pass)
 tree <- drop.tip(tree, as.vector(sample_no_pass$label))
 
 ## Create a dataframe of the tree
