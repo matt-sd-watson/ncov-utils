@@ -30,28 +30,26 @@ parser$add_argument('--output_directory', type = "character",
 parser$add_argument('--lineage_id', type = "character", 
                     help='Pango lineage identifier for file output annotation')
 parser$add_argument('--qc50_list', type = "character", 
-                    help='Metdata for samples that pass QC50 threshold')
+                    help='Metadata for samples that pass QC50 threshold')
 
 args <- parser$parse_args()
 
 tree <- read.tree(args$input_tree)
-qc50 <- read.table(args$qc50_list, header = T, sep = ',', fill = TRUE, quote = "")
-qc50 <- qc50[!is.na(qc50$collection_date),]
+qc50 <- read.table(args$qc50_list, header = T, sep = ',', fill = TRUE)
+qc50 <- qc50[!is.na(qc50$upload_date),]
 
 tree <- drop.tip(tree, "MN908947")
 
 ## Create a dataframe of the tree
 tr.df <- fortify(tree)
 ## Create a list of tree labels
-tr.df.labs <- tr.df %>%
+tr.df.labs <- as.data.frame(tr.df) %>%
   filter(isTip == "TRUE") %>%
   select(label)
 
 # if the sample is not on the qc50 list, drop it from the tree
 sample_no_pass <- tr.df.labs[!tr.df.labs$label %in% qc50$WGS_Id,]
-tree <- drop.tip(tree, sample_no_pass$label)
-
-# sub sample for B.1.1.7 because the number of samples is too large to view in a tree
+tree <- drop.tip(tree, sample_no_pass)
 
 ## Create a dataframe of the tree
 tr.df <- fortify(tree)
