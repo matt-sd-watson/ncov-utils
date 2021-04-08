@@ -10,6 +10,7 @@ library(RColorBrewer)
 library(directlabels)
 library(argparse)
 library(ggpubr)
+library(gridExtra)
 
 parser <- ArgumentParser(description='Process surveillance plots for bulk samples')
 parser$add_argument('--input_qc', type = "character", 
@@ -20,9 +21,7 @@ parser$add_argument('--lineage_watchlist', type = "character",
                     help='Input txt file of lineages to monitor')
 parser$add_argument('--mutation_watchlist', type = "character", 
                     help='Input txt file of mutations to monitor')
-
-# parser$add_argument('--output_dir', type = "character", 
-# help='target output dir')
+parser$add_argument('--output_dir', type = "character", help='target output dir')
 
 args <- parser$parse_args()
 
@@ -228,6 +227,59 @@ plot_7 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, co
                   col = "black") + ggtitle("Cumulative Counts of Lineages with Mutations of Interest, B.1.1.7") +
   scale_x_date(date_labels = "%b-%Y")
 
+### lineages with large single day increases over past month
+
+subset_other_lineages <- subset(qc_data, ! PANGO_lineage_updated %in% lineages) %>%
+  arrange(date) %>%
+  group_by(PANGO_lineage_updated, date) %>% 
+  summarise(counts = n())
+
+rolling_cases_other <- subset_other_lineages %>% group_by(PANGO_lineage_updated, .drop = FALSE) %>%
+  mutate(cumcases = cumsum(counts), change = cumcases - lag(cumcases), days_between = date - lag(date))
+
+rolling_cases_other$rate <- rolling_cases_other$change / as.numeric(rolling_cases_other$days_between)
+
+rolling_cases_other$rate[is.na(rolling_cases_other$rate)] <- 0
+
+highest_rates <- subset(rolling_cases_other, date > as.Date(Sys.Date() - 30)) %>% group_by(PANGO_lineage_updated) %>% filter(rate == max(rate)) %>%
+  arrange(desc(rate))
+
+highest_rates_lineages <- highest_rates[1:12,]$PANGO_lineage_updated
+
+rolling_avg <- rolling_cases_other %>% group_by(PANGO_lineage_updated) %>%
+  mutate(mean = (rate + lag(rate))/2)
+
+
+plot_8 <- ggplot(rolling_avg[rolling_avg$PANGO_lineage_updated %in% highest_rates_lineages,],
+       aes(x = date, y = rate)) + geom_bar(stat = "identity") +
+  geom_smooth(method = "loess", span = 0.3, se = FALSE, col = "red", size = 0.5) +
+  facet_wrap(~PANGO_lineage_updated, ncol = 3) +
+  theme(axis.title.x = element_text(vjust=-0.5),
+        plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  scale_x_date(date_labels = "%b-%Y") +
+  ggtitle("Greatest single-day rates of change, past month, non-VoC lineages")
+
+
+# both 501 and 484
+
+both_501_484 <- nextclade_qc50[grepl("S:N501Y", nextclade_qc50$aaSubstitutions) & grepl("S:E484K", nextclade_qc50$aaSubstitutions),]
+
+both_keep <- subset(both_501_484, select = c(seqName, clade))
+
+both_merged <- merge(qc_data, both_keep, by.x = "WGS_Id",
+                     by.y = "seqName")
+
+VOCs <- c("B.1.1.7", "B.1.351", "P.1")
+
+both_non_voc <- both_merged[!both_merged$PANGO_lineage_updated %in% VOCs,]
+
+both_non_voc <- subset(both_non_voc, select = c(WGS_Id, PANGO_lineage_updated, date, clade))
+row.names(both_non_voc) <- NULL
+
+plot_9 <- tableGrob(data.table(both_non_voc, rownames = F))
+plot_9 <- grid.arrange(top="Non-VOC samples with both 501 and 484", plot_8)
 
 # ggsave("cumulative_lineage_counts", plot = plot_1, device = "pdf", width=11, height=8.5)
 # ggsave("cumulative_mutation_counts", plot = plot_2, device = "pdf", width=11, height=8.5)
@@ -236,9 +288,13 @@ plot_7 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, co
 # ggsave("Distribution_lineages_by_mutation", plot = plot_5, device = "pdf", width=11, height=8.5)
 # ggsave("cumulative_lineage_counts_watchlist_mutations_no_b117", plot = plot_6, device = "pdf", width=11, height=8.5)
 # ggsave("cumulative_lineage_counts_watchlist_mutations_b117", plot = plot_7, device = "pdf", width=11, height=8.5)
+setwd(args$output_dir)
 
+# save the table of non voc mutation samples separately
+# ggsave(plot=plot_9, filename="both_mutations.pdf", limitsize = T, width = 10, height = 13)
 
 plot_list <- mget(ls(pattern = "^plot*"))
+
 pdf("ncov_surveillance_all.pdf", width = 11, height = 8.5)
 invisible(lapply(plot_list, print))
 dev.off()
