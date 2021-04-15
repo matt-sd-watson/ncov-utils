@@ -1,0 +1,665 @@
+---
+title: "ncov19 PHO Surveillance Report"
+author: "Public Health Ontario WGS Research Group"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true # table of content true
+    toc_float: false # show the toc on the side when scrolling instead of top
+    toc_depth: 4
+    number_sections: true  ## if you want number sections at each table header
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(data.table)
+library(ggrepel)
+library(lubridate)
+library(viridis)
+library(gridExtra)
+library(wesanderson)
+library(RColorBrewer)
+library(directlabels)
+library(argparse)
+library(ggpubr)
+library(gridExtra)
+library(waffle)
+library(magrittr)
+library(hrbrthemes)
+library(plotly)
+library(knitr)
+library(tidyverse)
+#install.packages("lubridate")
+library(lubridate)
+#install.packages("paletteer")
+library(paletteer)
+#devtools::install_github('hneth/unikn')
+library('unikn')  # loads the package
+#install.packages("lemon")
+library(lemon)
+#install.packages("treemapify")
+library(treemapify)
+#install.packages("colorspace")
+library(colorspace)  # install via: install.packages("colorspace", repos = "http://R-Forge.R-project.org")
+#install.packages("scales")
+library(scales)
+library(ggtree)
+library(ape)
+library(DT)
+library(htmlwidgets)
+```
+
+# Overview
+Weekly surveillance report for the Public Health Ontario (PHO) ncov19 project, highlighting weekly and cumulative case counts for VoCs, VoIs, emerging Pango lineages and mutations of interest that
+will be tracked. 
+\
+
+```{r, include = FALSE}
+qc50_loc <- list.files("/home/mwatson/COVID-19/qc50/", pattern = "*.csv")
+qc_data <- read.table(paste("/home/mwatson/COVID-19/qc50/", qc50_loc, sep=""), header = T, sep = ',',
+                      fill = TRUE, quote = "")
+qc_data$date <- as.Date(qc_data$Login_Date, format = "%d%b%Y")
+
+qc_data <- qc_data[!is.na(qc_data$date),]
+
+# arrange by ascending date and remove all duplicate sample names to keep earliest database instance
+qc_data <- qc_data %>% arrange(date)
+
+qc_data <- qc_data[!duplicated(qc_data$WGS_Id),]
+
+qc_data_recent <- subset(qc_data, date >= "2021-01-01")
+# read in the Nextclade data that has the mutation profiles
+
+voc <- c("B.1.1.7", "B.1.351", "P.1")
+
+total_lin_counts <- subset(qc_data_recent, lineage_all %in% voc) %>%
+  arrange(date) %>%
+  group_by(lineage_all) %>% summarise(total = n())
+
+subset_lineages <- subset(qc_data_recent, lineage_all %in% voc & lineage_all != "None") %>%
+  arrange(date) %>%
+  group_by(lineage_all, HEALTH_UNIT_REPORTABLE) %>% 
+  summarise(lin_counts = n())
+
+merged <- merge(subset_lineages, total_lin_counts, by.x = "lineage_all", by.y = "lineage_all")
+merged$percent <- round(100*(merged$lin_counts/merged$total), 2)
+merged$new_name <- paste(merged$lineage_all, " ", "(", merged$total, ")", sep="")
+merged$region_counts <- paste(merged$HEALTH_UNIT_REPORTABLE, " ", "(", merged$lin_counts, ")", sep="")
+
+labels_over_2.5 <- subset(merged, percent >= 2.5)
+
+
+for (i in unique(merged$lineage_all)) {
+  subset <- subset(merged, lineage_all == i)
+  title_name <- unique(subset$new_name)
+  plot_name <- paste("pie_chart", i, sep="_")
+  plot <- plot_ly(subset, labels = ~ region_counts, values = ~percent, type = 'pie',
+                  textposition = 'inside',textinfo = 'label+percent',
+                  textfont = list(color= c("white"), size = 15)) %>%
+    layout(title = paste("Health Unit Distribution of ", title_name, sep=""),
+           xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+           yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+           showlegend = T)
+  plot_animated <- ggplotly(plot) %>% onRender("function(el,x){el.on('plotly_legendclick', function(){ return false; })}")
+  assign(plot_name, plot_animated)
+}
+```
+
+
+```{r, include = FALSE, echo=FALSE}
+subset_voc_date <- subset(qc_data_recent, lineage_all %in% voc & lineage_all != "None") %>%
+  arrange(date) %>%
+  group_by(lineage_all, date) %>% 
+  summarise(lin_counts = n())
+
+rolling_cases <- subset_voc_date %>% group_by(lineage_all, .drop = FALSE) %>%
+  mutate(cumcases = cumsum(lin_counts))
+
+setnames(rolling_cases, old = c('lineage_all'), new = c('lineage'))
+
+plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases)) + geom_point(col = "blue") + 
+  facet_wrap(~lineage, ncol=2) +
+  theme_bw() + theme(axis.text.x = element_text(angle = 0)) +
+  geom_line(color='red',data = rolling_cases, aes(x = date, y = cumcases)) +
+  geom_label_repel(aes(label = cumcases),
+                   box.padding   = 0.2, 
+                   point.padding = 0.3,
+                   segment.color = 'grey50',
+                   size = 3) +
+  theme(axis.title.x = element_text(vjust=-0.5),
+        plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  ggtitle(paste("Watchlist lineages (VoC) as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
+  xlab("Logging Date") +
+  ylab("Cumulative Case Counts") + scale_x_date(date_labels = "%b-%Y")
+```
+
+
+
+```{r, echo = FALSE, include=FALSE}
+meta.df <- qc_data %>%
+            mutate(Login.Date = as.Date(Login_Date, format =  "%d%b%Y")) %>%
+            mutate(epi.wk.login = ifelse(is.na(Login.Date), NA,
+                                         paste(epiyear(Login.Date), sprintf( "%02d", epiweek(Login.Date)), sep = "-"))) %>%
+            mutate(upload.date.lineage.plate = as.Date(upload_date_lineage_plate, format =  "%m/%d/%Y")) %>%  
+            mutate(epi.wk.compl = epiweek(upload.date.lineage.plate)) %>%
+            mutate(lineage.all.cat = ifelse(lineage_all == "B.1.1.7" | 
+                                            lineage_all == "B.1.351" | 
+                                            lineage_all == "P.1", "VOC",
+                                     ifelse(lineage_all == "P.2" | 
+                                            lineage_all == "P.3" |
+                                            lineage_all == "B.1.525" |
+                                            (lineage_all == "B.1.2" & E484K == "Detected") |
+                                            lineage_all == "R.1" |
+                                            lineage_all == "B.1.1.318" | 
+                                            lineage_all == "B.1.427" |
+                                            lineage_all == "B.1.429" |
+                                            lineage_all == "B.1.526", 
+                                            "VOI", "non-VOC/non-VOI"))) %>%
+           mutate(lin.parent.grp = gsub("\\..*","",lineage_all)) 
+
+meta.df <- meta.df[!duplicated(meta.df$WGS_Id),]
+
+
+#---->>>> Filter to recent samples <<<<----
+meta.df.sub <- meta.df %>% 
+                filter(lineage_all != "None") %>%
+                filter(!is.na(Login.Date) & Login.Date >= "2021-01-01")
+  
+
+#----.... Sequencing Statistics ....----
+# Total number of samples sequenced since Jan 1, 2021 (unique, QC 50%, PASS?)
+# nrow(meta.df.sub)
+
+# Change from last reported (assume reporting every Wednesday)
+date_cat <- interval(ymd(Sys.Date() - 7), ymd(Sys.Date()))
+meta.df.sub$time_cat <- ifelse(meta.df.sub$Login.Date %within% date_cat, "Latest Week", "All Past Weeks")
+
+time_cat_table <- as.data.frame(table(meta.df.sub$time_cat))
+colnames(time_cat_table) <- c("Week category", "Samples")
+  
+# nrow(meta.df.sub.recent)
+
+
+#>> Add Sarah's code here to show the proportion of total sequenced
+
+
+#----.... Lineage Statistics ....----
+# Total number of lineages
+meta.df.sub %>%  
+  distinct(lineage_all) %>%
+  summarise(n = n())
+
+num_lineages <- data.frame(Category = "Number of unique Pango lineages",
+                           Number = length(unique(meta.df.sub$lineage_all)))
+
+
+# Lineages distribution (>=1% relative frequency)
+meta.df.sub %>%  
+  group_by(lineage_all) %>%
+  summarise(n = n()) %>%
+  mutate(rel.freq = 100*(n/sum(n))) %>%
+  filter(rel.freq >= 1) %>%
+  arrange(desc(rel.freq))
+  
+
+# number of palettes needed
+n.lin.parent <- length(unique(meta.df.sub$lin.parent.grp))
+
+n.lin.grp <- meta.df.sub %>% 
+              group_by(lin.parent.grp, lineage_all) %>%
+              summarise(n = n()) %>%
+              ungroup()
+
+# Use 9 palettes from the colorspace package, one for each parent lineage
+palette <- c( "Purp", "Greens", "Purples", "Mint","Teal", "PinkYl","PuRd","Burg", "RedOr")
+
+n.lin.grp.cols <- n.lin.grp %>% 
+                    distinct(lin.parent.grp) %>%
+                    bind_cols(palette = palette) %>%
+                    right_join(., n.lin.grp, by = "lin.parent.grp")
+
+
+# Lineages will have a gradient that resets between parent lineages
+meta.df.sub.col <- n.lin.grp.cols %>%
+                    arrange(lin.parent.grp) %>% 
+                    group_by(lin.parent.grp) %>%
+                    #distinct(lineage_all) %>%
+                    mutate(colour = colorspace::sequential_hcl(length(lineage_all)+1, 
+                                                               palette = palette)[seq_along(lineage_all)])
+
+# Generate plot
+pl.lin <- ggplot(meta.df.sub.col, aes(area = n, label = lineage_all, fill = colour, subgroup = lin.parent.grp)) + 
+            geom_treemap() + 
+            geom_treemap_subgroup_border(color = "white") +
+            geom_treemap_text(colour = "white", place = "topleft", reflow = T, min.size = 5) +
+            #geom_treemap_subgroup_text(alpha = 1, grow = F, place = "center", color = "white") + 
+            #geom_treemap_subgroup2_text(alpha = 0.7, grow = T, place = "center") + 
+            theme(legend.position="none") + 
+            scale_fill_identity()
+
+n.lin.grp <- n.lin.grp %>% arrange(-n)
+n.lin.grp$percent <- round( 100 * (n.lin.grp$n / sum(time_cat_table$Samples)), 2)
+colnames(n.lin.grp) <- c("Parent Lineage Group", "Pango Lineage", "Counts", "Percentage")
+n.lin.grp$Category <- ifelse(n.lin.grp$`Pango Lineage` %in% c("B.1.1.7",
+                                                              "B.1.351", "P.1"), "VoC",
+                             "")
+
+
+```
+
+# Weekly sequencing counts summary
+
+Sequence numbers are classified by having been processed in the most recent week, or
+any other previous week. Note that the sample numbers displayed below reflect recent Ontario sequences that have been processed on or after January 1, 2021. 
+\
+
+```{r, results='asis', echo=FALSE}
+kable(as.data.frame(time_cat_table), caption = "Weekly sequence count distributions")
+```
+
+# Pango Lineages
+
+
+## Total Distribution Counts of Pango Lineages
+
+\
+
+```{r, results='asis', echo=FALSE}
+kable(as.data.frame(num_lineages), caption = "Total Number of unique Pango Lineages")
+```
+
+
+
+A graphic depicting the relative frequency of Pango lineages among samples sequenced at
+PHO reveals the lineage designations that are more transmissible in Ontario over a set period
+of time. Note that the samples numbers displayed below reflect recent Ontario sequences that have been processed on or after January 1, 2021.
+\
+
+```{r, echo=FALSE, fig.height=8, fig.width=9}
+pl.lin
+```
+
+```{r, results='asis', echo=FALSE}
+
+datatable(as.data.frame(n.lin.grp), extensions = 'Buttons',
+          options = list(pageLength = 15, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+```
+
+# Cumulative Case Counts of Pango VoCs 
+
+Cumulative case counts for each lineage that is designated as a VoC. Sequence numbers and percentages represent recent case numbers from all Ontario Health Regions that were processed by PHO on or after January 1, 2021. 
+\
+
+```{r, warning=FALSE, fig.height=15, fig.width=12, echo=FALSE}
+plot_1
+```
+
+# Health Unit Distribution of Variants of Concern (VoCs)
+
+The weekly tracking of the distribution of case counts of VoCs by Ontario Health Unit will assist in identifying potential outbreak locations and provide regional monitoring of variants that may have
+large impacts on population health, vaccine response, and transmission rates. These data
+may also assist in providing Health Unit-specific public health responses based on 
+VoC frequencies in a particular region over a certain time period. 
+\
+\
+
+```{r pressure, echo=FALSE, fig.width=8.5}
+pie_chart_B.1.1.7
+pie_chart_B.1.351
+pie_chart_P.1
+```
+\
+
+```{r, echo=FALSE, include = FALSE}
+# make sure that the nextclade data is taken from the qc50 sequences and not all
+
+nextclade_loc <- list.files("/NetDrive/Projects/COVID-19/Other/master_fasta/", pattern = "nextclade*")
+nextclade_data <- read.table(paste("/NetDrive/Projects/COVID-19/Other/master_fasta/", nextclade_loc, sep=""), header = T, sep = '\t', fill = TRUE, quote = "")
+
+mutations <- c("S:N501Y", "S:E484K")
+
+nextclade_qc50 <- nextclade_data[nextclade_data$seqName %in% qc_data$WGS_Id,]
+
+# search for all mutations using grepl
+nextclade_with_mut <- nextclade_qc50[grepl(paste(mutations,collapse="|"), 
+                                           nextclade_qc50$aaSubstitutions),]
+
+# remove any object matching pattern for concatenation
+rm(list=ls(pattern="^mutation_frame.*"))
+
+# create a mutation frame for each mutation with the samples containing the mutation
+for (i in mutations) {
+  nextclade_with_mut <- nextclade_qc50[grepl(i, nextclade_qc50$aaSubstitutions),]
+  nextclade_with_mut$lineage <- i
+  name <- paste("mutation_frame_", i, sep="")
+  assign(name, nextclade_with_mut)
+}
+
+# bind all mutation frames
+df_list <- mget(ls(pattern = "^mutation_frame.*"))
+all_muts <- plyr::rbind.fill(df_list)
+
+muts_frame_keep <- subset(all_muts, select = c(seqName, lineage))
+
+mut_merged <- merge(qc_data, muts_frame_keep, by.x = "WGS_Id",
+                    by.y = "seqName")
+
+mut_lin_rolling_date <- subset(mut_merged, select = c(WGS_Id, lineage_all,
+                                                      date, lineage))
+
+colnames(mut_lin_rolling_date) <- c("name", "lineage", "date", "mutation")
+print(mut_lin_rolling_date)
+```
+
+
+```{r, echo=FALSE, include = FALSE, message=FALSE}
+mut_lin_date_grouped <- mut_lin_rolling_date %>% arrange(date) %>%
+  group_by(mutation, lineage, date) %>%
+  summarise(counts = n())
+
+mut_lin_date_grouped_final <- mut_lin_date_grouped %>% group_by(mutation, lineage) %>%
+  mutate(cumcases = cumsum(counts))
+
+# set 501 mutation to come before 484
+mut_lin_date_grouped_final$mutation <- factor(mut_lin_date_grouped_final$mutation,
+                                                 levels = c("S:N501Y", "S:E484K"))
+
+mut_lin_date_grouped_final_voc <- mut_lin_date_grouped_final[mut_lin_date_grouped_final$lineage %in% c("P.1", "B.1.351"),]
+
+# get the most recent date for each of the lineages by mutation
+max_date_each_lin_voc <- mut_lin_date_grouped_final_voc %>% group_by(mutation, lineage) %>% filter(date == max(date))
+
+# plot the lineages separately for each mutation
+# include a label at the most recent date of logging for each mutation
+plot_voc_no_b117 <- ggplot(mut_lin_date_grouped_final_voc, aes(x = date, y = cumcases, col = lineage)) +
+  geom_point(data = max_date_each_lin_voc, aes(color = lineage)) +
+  geom_line() + facet_wrap(~mutation, ncol = 2) + ylab("Case Counts") +
+  xlab("Logging Date") +
+  theme(text = element_text(size=20),
+        axis.title.x = element_text(vjust=-0.5),
+        plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  geom_text_repel(data = max_date_each_lin_voc,
+                  aes(label = paste(lineage, paste("(", cumcases, ")", sep = ""), sep = " ")), hjust = 0, nudge_x = 0.05, size = 5,
+                  col = "black") +
+  ggtitle("Cumulative Counts of VoC Lineages with Mutations of Interest, no B.1.1.7") +
+  scale_x_date(date_labels = "%b-%Y")
+
+
+mut_lin_date_grouped_final_non_voc <- mut_lin_date_grouped_final[!mut_lin_date_grouped_final$lineage %in% c("P.1", "B.1.351", "B.1.1.7"),]
+
+# get the most recent date for each of the lineages by mutation
+max_date_each_lin_non_voc <- mut_lin_date_grouped_final_non_voc %>% group_by(mutation, lineage) %>% filter(date == max(date))
+
+# plot the lineages separately for each mutation
+# include a label at the most recent date of logging for each mutation
+plot_non_voc <- ggplot(mut_lin_date_grouped_final_non_voc, aes(x = date, y = cumcases, col = lineage)) +
+  geom_point(data = max_date_each_lin_non_voc, aes(color = lineage)) +
+  geom_line() + facet_wrap(~mutation, ncol = 2) + ylab("Case Counts") +
+  xlab("Logging Date") +
+  theme(text = element_text(size=20),
+        axis.title.x = element_text(vjust=-0.5),
+        plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  geom_text_repel(data = max_date_each_lin_non_voc,
+                  aes(label = paste(lineage, paste("(", cumcases, ")", sep = ""), sep = " ")), hjust = 0, nudge_x = 0.05, size = 5,
+                  col = "black") +
+  ggtitle("Cumulative Counts of non-VoC Lineages with Mutations of Interest") +
+  scale_x_date(date_labels = "%b-%Y")
+
+mut_lin_date_grouped_final_b117 <- mut_lin_date_grouped_final[mut_lin_date_grouped_final$lineage == "B.1.1.7",]
+
+# get the most recent date for each of the lineages by mutation to assign labels
+max_date_each_lin_b117 <- mut_lin_date_grouped_final_b117 %>% group_by(mutation, lineage) %>% filter(date == max(date))
+
+plot_b117 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, col = lineage)) +
+  geom_point(data = max_date_each_lin_b117, aes(color = lineage)) +
+  geom_line() + facet_wrap(~mutation, ncol = 2) + ylab("Case Counts") +
+  xlab("Logging Date") +
+  theme(text = element_text(size=20),
+        axis.title.x = element_text(vjust=-0.5, size = 20),
+        plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  geom_text_repel(data = max_date_each_lin_b117,
+                  aes(label = paste(lineage, paste("(", cumcases, ")", sep = ""), sep = " ")), hjust = 0, nudge_x = 0.05, size = 5,
+                  col = "black") +
+  ggtitle("Cumulative Counts of Lineages with Mutations of Interest, B.1.1.7") +
+  scale_x_date(date_labels = "%b-%Y")
+```
+
+# Pango lineage distribution among spike (S) protein mutations of concern
+
+Tracking the distribution of lineages among the mutations of concern observed in the Spike protein S, 
+which currently includes S:E484K and S:N501Y, allows for the identification of non-VoC lineages
+that carry mutations of concern. Spike mutations are correlated to increased transmissability and the
+potential for a vaccine escape mechanism when observed in conjunction with other mutations. Spike protein mutations S:E484K and S:N501Y have been observed both together and individually in Pango VoC and non-VoC lineages, so monitoring their frequency across all lineages will assist in tracking the phylogenetic power of these mutations. 
+
+It is important to note that the Pango lineage identifier is dynamic, and is subject to change as the software and algorithm for lineage designation becomes more robust with a larger global dataset. As such, certain lineages designations for non-VoCs with S mutations may later be re-assigned to a VoC Pango lineage, and/or vice versa. 
+
+\
+The B.1.1.7 lineage has been particularly transmissible both in Ontario and globally, so the numbers are plotted separately for visual aid. This lineage originated in the United Kingdom (UK) in late 2020, and has since been observed in almost every country and global region where a positive COVID-19 case has been counted. 
+\
+\
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=12.5, fig.width=17}
+plot_b117
+```
+\
+\
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=16, fig.width=17}
+plot_voc_no_b117
+```
+\
+\
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=12.5, fig.width=17}
+plot_non_voc
+```
+\
+\
+
+```{r, include=FALSE}
+
+lineages <- c("B.1.1.7", "B.1.351", "P.2", "B.1.525", "P.1",  "B.1.526", "A.23.1",
+              "B.1.351.1", "B.1.351.2", "B.1.526.1", "B.1.526.2")
+
+subset_other_lineages <- subset(qc_data_recent, ! lineage_all %in% lineages) %>%
+  arrange(date) %>%
+  group_by(lineage_all, date) %>% 
+  summarise(counts = n())
+
+rolling_cases_other <- subset_other_lineages %>% group_by(lineage_all, .drop = FALSE) %>%
+  mutate(cumcases = cumsum(counts), change = cumcases - lag(cumcases), days_between = date - lag(date))
+
+rolling_cases_other$rate <- rolling_cases_other$change / as.numeric(rolling_cases_other$days_between)
+
+rolling_cases_other$rate[is.na(rolling_cases_other$rate)] <- 0
+
+highest_rates <- subset(rolling_cases_other, date > as.Date(Sys.Date() - 30)) %>% group_by(lineage_all) %>% filter(rate == max(rate)) %>%
+  arrange(desc(rate))
+
+highest_rates_lineages <- highest_rates[1:12,]$lineage_all
+
+rolling_avg <- rolling_cases_other %>% group_by(lineage_all) %>%
+  mutate(mean = (rate + lag(rate))/2)
+
+highest_daily_ontario <- rolling_avg[rolling_avg$lineage_all %in% highest_rates_lineages,]
+
+high_daily <- ggplot(highest_daily_ontario,
+       aes(x = date, y = rate)) + geom_line(col = "black") +
+  geom_smooth(method = "loess", span = 0.3, se = FALSE, col = "red", size = 0.5) +
+  facet_wrap(~lineage_all, ncol = 3) +
+  ylim(c(0, max(rolling_avg$rate + 15))) +
+  theme(axis.title.x = element_text(vjust=-0.5),
+        plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"),
+        panel.spacing.x = unit(15, "mm")) +
+  scale_x_date(date_labels = "%b-%Y") +
+  ggtitle("Greatest single-day rates of change, past month, non-VoC lineages") +
+  ggtitle(paste("Pango Lineages w/ highest daily rates, past month, non-VoC, as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) + xlab("Logging Date") + ylab("Daily Case Number Increase")
+
+
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.width=10, fig.height=13.5, include=FALSE}
+high_daily
+```
+```{r, include=FALSE}
+qc50_highest_voc <- qc_data_recent[qc_data_recent$lineage_all %in% c("B.1.1.7", "B.1.351", "P.1"),]
+
+nextclade_qc50_voc <- nextclade_qc50[nextclade_qc50$seqName %in% qc50_highest_voc$WGS_Id,]
+
+merged_voc_ontario <- merge(qc50_highest_voc, nextclade_qc50_voc, by.x = "WGS_Id",
+                                by.y = "seqName")
+
+
+separation <- unlist(strsplit(as.vector(merged_voc_ontario$aaSubstitutions),
+                       split = ","))
+
+all_muts_frame <- data.frame(table(separation))
+all_muts_frame$percent_sample <- round(100*(all_muts_frame$Freq / nrow(nextclade_qc50_voc)), 2)
+all_muts_frame$Gene <- str_split_fixed(all_muts_frame$separation, ":", 2)[,1]
+colnames(all_muts_frame) <- c("mutation", "samples", "Percent of all samples", "Gene")
+
+all_muts_frame <- all_muts_frame %>% arrange(-`Percent of all samples`)
+
+```
+
+# Mutation distributions
+
+A table comprising the total counts and percentage of samples that have particular mutations can demonstrate the patterns of mutations across both VoC and non-VoC lineages. Characterization of these mutation patterns can assist in revealing the identity of mutations that may contribute to increased levels of clade and lineage transmission.\
+Percentages include the percentage of all samples in the specific category (VoC or non-VoC) that have this mutation. 
+\
+
+## Mutation Distributions for VoC Pango Lineages
+
+```{r, results='asis', echo=FALSE}
+datatable(as.data.frame(all_muts_frame), extensions = 'Buttons',
+          options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+```
+
+```{r, include=FALSE}
+qc50_highest_non_voc <- qc_data_recent[! qc_data_recent$lineage_all %in% c("B.1.1.7", "B.1.351", "P.1"),]
+
+nextclade_qc50_non_voc <- nextclade_qc50[nextclade_qc50$seqName %in% qc50_highest_non_voc$WGS_Id,]
+
+merged_non_voc_ontario <- merge(qc50_highest_non_voc, nextclade_qc50_non_voc, by.x = "WGS_Id",
+                                by.y = "seqName")
+
+
+separation <- unlist(strsplit(as.vector(merged_non_voc_ontario$aaSubstitutions),
+                       split = ","))
+
+all_muts_frame_no_voc <- data.frame(table(separation))
+all_muts_frame_no_voc$percent_sample <- round(100*(all_muts_frame_no_voc$Freq / nrow(nextclade_qc50_non_voc)), 2)
+all_muts_frame_no_voc$Gene <- str_split_fixed(all_muts_frame_no_voc$separation, ":", 2)[,1]
+colnames(all_muts_frame_no_voc) <- c("mutation", "samples", "Percent of all samples", "Gene")
+
+all_muts_frame_no_voc <- all_muts_frame_no_voc %>% arrange(-`Percent of all samples`)
+
+```
+
+
+## Mutation Distributions for non-VoC Pango Lineages
+\
+
+```{r, results='asis', echo=FALSE}
+datatable(as.data.frame(all_muts_frame_no_voc), extensions = 'Buttons',
+          options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+```
+
+```{r, include=FALSE}
+trees_loc <- list.files("/home/mwatson/COVID-19/surveillance_reports/07-Apr-2021/", pattern = "iqtree.nwk",
+                        recursive = T)
+tree_paths <- paste("/home/mwatson/COVID-19/surveillance_reports/07-Apr-2021/", trees_loc,
+                    sep="")
+tree_paths
+```
+# Phylogenetic Analysis of Pango Lineage VoCs
+
+Phylogenetic trees are generated through a statistical procedure that infers the ancestry and
+similarity among sequences by considering their mutation profiles among with a model for mutation substitution rates. As such they represent the best possible relationship among a group of samples based on the mutation information available to the model. These relationships should not be considered as absolute, and are subject to biases related to sample quality and depth of sequencing coverage. 
+\
+
+
+```{r, echo=FALSE, warning=FALSE, fig.height=13, fig.width=12}
+for (i in tree_paths) {
+  tree <- read.tree(i)
+  tree <- drop.tip(tree, "MN908947")
+
+  ## Create a data frame of the tree
+  tr.df <- fortify(tree)
+  ## Create a list of tree labels
+  tr.df.labs <- as.data.frame(tr.df) %>%
+  filter(isTip == "TRUE") %>%
+  select(label)
+
+  # if the sample is not on the qc50 list, drop it from the tree
+  sample_no_pass <- as.data.frame(tr.df.labs[!tr.df.labs$label %in% qc_data$WGS_Id,])
+  colnames(sample_no_pass) <- "label"
+  tree <- drop.tip(tree, as.vector(sample_no_pass$label))
+
+  ## Create a dataframe of the tree
+  tr.df <- fortify(tree)
+  ## Create a list of tree labels
+  tr.df.labs <- tr.df %>%
+    filter(isTip == "TRUE") %>%
+    select(label)
+  
+  date_cat <- interval(ymd(Sys.Date() - 7), ymd(Sys.Date()))
+  qc_data$date_cat <- ifelse(qc_data$date %within% date_cat, "Latest Week", "All Past Weeks")
+  qc50_keep <- subset(qc_data, select = c(WGS_Id, date, date_cat))
+  meta.df <- merge(tr.df.labs, qc50_keep, by.x = "label", by.y = "WGS_Id")
+  # treat the countries as a factor for plotting
+  meta.df$date_cat <- as.factor(meta.df$date_cat)
+  
+  
+  cols <- c("Latest Week" = "dark blue",  "All Past Weeks" = "grey60")
+  
+  meta.df$nml_lab <- paste("ON-PHL", str_split_fixed(meta.df$label, "PHLON|-SARS", 4)[,2],
+                         str_split_fixed(meta.df$label, "PHLON|-SARS", 4)[,3], sep = "-")
+  pl.1 <- ggtree(tree, size = 0.5)
+  pl.2 <- pl.1 %<+% meta.df +
+    geom_tippoint(aes(x=x+0.000001, subset=date_cat == "Latest Week", label = label, colour = date_cat),
+                  size = 2, shape = 16) +
+    geom_tippoint(aes(x=x+0.000001, subset=date_cat == "All Past Weeks", label = label, colour = date_cat),
+                  size = 2, shape = 16) +  
+  # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "ON-PHO", label = nml_lab),  size = 1.5, offset = 0.000005) +
+  # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "non-PHO", label = label),  size = 1.5, offset = 0.000005) +
+    theme(plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm"),
+        legend.text=element_text(size=12),
+        legend.position = c(0.85, 0.5),
+        plot.title = element_text(size = 20),
+        legend.title=element_text(size=15, face = "bold"),
+        legend.box = "vertical",
+        legend.box.margin = margin(0.01,0.02,0.02,0.02,"cm"),
+        legend.box.background = element_rect(colour = "grey50"),
+        legend.spacing.y = unit(0.1, "cm"),
+        legend.key.width = unit(0.3, "cm"),
+        legend.key.height = unit(0.3, "cm"),
+        legend.spacing.x = unit(0.3, 'cm'),
+        legend.key.size = unit(3,"lines")) +
+    scale_color_manual("Sequencing Period", values=cols) +
+    guides(color = guide_legend(override.aes = list(size = 1.75))) +
+    ggtitle(paste("Phylogenetic tree, ", str_split_fixed(i, "/", 8)[7], sep=""))
+  print(pl.2)
+}
+```
+
+# References
+
+1. Pango Lineages. https://cov-lineages.org/
+\
+\
+\
