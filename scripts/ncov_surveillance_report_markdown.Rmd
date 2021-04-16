@@ -50,6 +50,8 @@ library(ggtree)
 library(ape)
 library(DT)
 library(htmlwidgets)
+library(gtable)
+library(grid)
 ```
 
 # Overview
@@ -121,9 +123,16 @@ rolling_cases <- subset_voc_date %>% group_by(lineage_all, .drop = FALSE) %>%
 
 setnames(rolling_cases, old = c('lineage_all'), new = c('lineage'))
 
+# set this specific order to place the blank cell next to b117 and have other 
+# two vocs on separate line
+rolling_cases$lin_fac <- factor(rolling_cases$lineage, levels=c("P.1","B.1.351", "B.1.1.7"))
+
 plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases)) + geom_point(col = "blue") + 
-  facet_wrap(~lineage, ncol=2) +
-  theme_bw() + theme(axis.text.x = element_text(angle = 0)) +
+  # facet wrap with as fable allows for blank cell in col 2 cell 1
+  # https://stackoverflow.com/questions/56447366/ordering-placement-of-empty-facet-when-using-facet-wrap
+  facet_wrap(~lin_fac, ncol=2, scales = "free", as.table = F) +
+  theme_bw() + theme(axis.text.x = element_text(angle = 0, size = 10),
+                     axis.text.y = element_text(size = 10)) +
   geom_line(color='red',data = rolling_cases, aes(x = date, y = cumcases)) +
   geom_label_repel(aes(label = cumcases),
                    box.padding   = 0.2, 
@@ -135,7 +144,7 @@ plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases)) + geom_point(col = 
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black")) +
   ggtitle(paste("Watchlist lineages (VoC) as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) +
-  xlab("Logging Date") +
+  xlab("Login Date") +
   ylab("Cumulative Case Counts") + scale_x_date(date_labels = "%b-%Y")
 ```
 
@@ -274,6 +283,15 @@ kable(as.data.frame(time_cat_table), caption = "Weekly sequence count distributi
 kable(as.data.frame(num_lineages), caption = "Total Number of unique Pango Lineages")
 ```
 
+```{r, include = F, echo=F}
+grouped_age <- qc_data_recent %>% count(X_Gender, AgeGroup)
+ggplot(grouped_age, aes(x = AgeGroup, y = n, fill = AgeGroup)) + facet_wrap(~X_Gender) +
+  geom_bar(stat = "identity")
+  
+```
+
+
+
 
 ## Total Distribution Counts of Pango Lineages
 \
@@ -333,7 +351,7 @@ cat_time_plot
 Cumulative case counts for each lineage that is designated as a VoC. Sequence numbers and percentages represent recent case numbers from all Ontario Health Regions that were processed by PHO on or after January 1, 2021. 
 \
 
-```{r, warning=FALSE, fig.height=15, fig.width=12, echo=FALSE}
+```{r, warning=FALSE, fig.height=16, fig.width=14, echo=FALSE}
 plot_1
 ```
 
@@ -417,7 +435,7 @@ max_date_each_lin_voc <- mut_lin_date_grouped_final_voc %>% group_by(mutation, l
 plot_voc_no_b117 <- ggplot(mut_lin_date_grouped_final_voc, aes(x = date, y = cumcases, col = lineage)) +
   geom_point(data = max_date_each_lin_voc, aes(color = lineage)) +
   geom_line() + facet_wrap(~mutation, ncol = 2) + ylab("Case Counts") +
-  xlab("Logging Date") +
+  xlab("Login Date") +
   theme(text = element_text(size=20),
         axis.title.x = element_text(vjust=-0.5),
         plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
@@ -440,7 +458,7 @@ max_date_each_lin_non_voc <- mut_lin_date_grouped_final_non_voc %>% group_by(mut
 plot_non_voc <- ggplot(mut_lin_date_grouped_final_non_voc, aes(x = date, y = cumcases, col = lineage)) +
   geom_point(data = max_date_each_lin_non_voc, aes(color = lineage)) +
   geom_line() + facet_wrap(~mutation, ncol = 2) + ylab("Case Counts") +
-  xlab("Logging Date") +
+  xlab("Login Date") +
   theme(text = element_text(size=20),
         axis.title.x = element_text(vjust=-0.5),
         plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
@@ -460,7 +478,7 @@ max_date_each_lin_b117 <- mut_lin_date_grouped_final_b117 %>% group_by(mutation,
 plot_b117 <- ggplot(mut_lin_date_grouped_final_b117, aes(x = date, y = cumcases, col = lineage)) +
   geom_point(data = max_date_each_lin_b117, aes(color = lineage)) +
   geom_line() + facet_wrap(~mutation, ncol = 2) + ylab("Case Counts") +
-  xlab("Logging Date") +
+  xlab("Login Date") +
   theme(text = element_text(size=20),
         axis.title.x = element_text(vjust=-0.5, size = 20),
         plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
@@ -544,7 +562,7 @@ high_daily <- ggplot(highest_daily_ontario,
         panel.spacing.x = unit(15, "mm")) +
   scale_x_date(date_labels = "%b-%Y") +
   ggtitle("Greatest single-day rates of change, past month, non-VoC lineages") +
-  ggtitle(paste("Pango Lineages w/ highest daily rates, past month, non-VoC, as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) + xlab("Logging Date") + ylab("Daily Case Number Increase")
+  ggtitle(paste("Pango Lineages w/ highest daily rates, past month, non-VoC, as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) + xlab("Login Date") + ylab("Daily Case Number Increase")
 
 
 ```
@@ -614,6 +632,14 @@ all_muts_frame_no_voc <- all_muts_frame_no_voc %>% arrange(-`Percent of all samp
 ```{r, results='asis', echo=FALSE}
 datatable(as.data.frame(all_muts_frame_no_voc), extensions = 'Buttons',
           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+```
+
+```{r, include=FALSE, echo=FALSE}
+# overlap number in top 250 mutations for vocs and non vocs
+top_muts_voc <- as.vector(all_muts_frame$mutation[1:250])
+top_muts_non_voc <- as.vector(all_muts_frame_no_voc$mutation[1:250])
+length(intersect(top_muts_non_voc, top_muts_voc))
+
 ```
 
 ```{r, include=FALSE}
