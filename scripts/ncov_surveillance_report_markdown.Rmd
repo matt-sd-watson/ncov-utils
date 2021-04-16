@@ -103,7 +103,8 @@ for (i in unique(merged$lineage_all)) {
            xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
            yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
            showlegend = T)
-  plot_animated <- ggplotly(plot) %>% onRender("function(el,x){el.on('plotly_legendclick', function(){ return false; })}")
+  # on render function allows for clicking on legend entries to isolate in pie chart
+  plot_animated <- ggplotly(plot) %>% onRender("function(el,x){el.on('plotly_legendclick', function(){ x.returnValue = false; })}")
   assign(plot_name, plot_animated)
 }
 ```
@@ -149,7 +150,7 @@ meta.df <- qc_data %>%
             mutate(epi.wk.compl = epiweek(upload.date.lineage.plate)) %>%
             mutate(lineage.all.cat = ifelse(lineage_all == "B.1.1.7" | 
                                             lineage_all == "B.1.351" | 
-                                            lineage_all == "P.1", "VOC",
+                                            lineage_all == "P.1", "VoC",
                                      ifelse(lineage_all == "P.2" | 
                                             lineage_all == "P.3" |
                                             lineage_all == "B.1.525" |
@@ -159,7 +160,7 @@ meta.df <- qc_data %>%
                                             lineage_all == "B.1.427" |
                                             lineage_all == "B.1.429" |
                                             lineage_all == "B.1.526", 
-                                            "VOI", "non-VOC/non-VOI"))) %>%
+                                            "VoI", "non-VoC/non-VoI"))) %>%
            mutate(lin.parent.grp = gsub("\\..*","",lineage_all)) 
 
 meta.df <- meta.df[!duplicated(meta.df$WGS_Id),]
@@ -247,7 +248,7 @@ n.lin.grp$percent <- round( 100 * (n.lin.grp$n / sum(time_cat_table$Samples)), 2
 colnames(n.lin.grp) <- c("Parent Lineage Group", "Pango Lineage", "Counts", "Percentage")
 n.lin.grp$Category <- ifelse(n.lin.grp$`Pango Lineage` %in% c("B.1.1.7",
                                                               "B.1.351", "P.1"), "VoC",
-                             "")
+                             ifelse(n.lin.grp$`Pango Lineage` %in% c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526"), "VoI", ""))
 
 
 ```
@@ -265,7 +266,7 @@ kable(as.data.frame(time_cat_table), caption = "Weekly sequence count distributi
 # Pango Lineages
 
 
-## Total Distribution Counts of Pango Lineages
+## Unique Pango lineage counts
 
 \
 
@@ -274,6 +275,8 @@ kable(as.data.frame(num_lineages), caption = "Total Number of unique Pango Linea
 ```
 
 
+## Total Distribution Counts of Pango Lineages
+\
 
 A graphic depicting the relative frequency of Pango lineages among samples sequenced at
 PHO reveals the lineage designations that are more transmissible in Ontario over a set period
@@ -289,6 +292,41 @@ pl.lin
 datatable(as.data.frame(n.lin.grp), extensions = 'Buttons',
           options = list(pageLength = 15, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
+
+# Sequence designation by epi week
+
+Pango lineages are designated based on the following assignment criteria: 
+
+```{r, include=FALSE}
+cat_over_time <- meta.df %>% group_by(epi.wk.login, lineage.all.cat) %>% summarise(samples = n())
+cat_time_plot <- ggplot(cat_over_time, aes(x = epi.wk.login, y = samples, fill = lineage.all.cat)) +
+  geom_bar(stat = "identity", position = "stack") +
+  theme(axis.text.x = element_text(angle = 90, size = 14),
+        axis.text.y = element_text(size = 14),
+                                   plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) + labs(fill = "Category") + xlab("Epidemiological Week") + ylab("Sample Counts")
+
+voc_sep <- "B.1.1.7, B.1.351, P.1"
+voi_sep <- "P.2, P.3, B.1.525, R.1, B.1.1.318, B.1.427, B.1.429, B.1.526, B.1.2 with S:E484K"
+
+designation_frame <- data.frame(Category = c("VoC", "VoI", "non-VoC/non-VoI"),
+                               Included = c(voc_sep, voi_sep, "Any other lineage"))
+
+
+```
+
+```{r, fig.height=12, fig.width=13, echo=FALSE}
+kable(as.data.frame(designation_frame), caption = "Pango lineage designation guide",
+      align=rep('l', 5))
+```
+
+
+```{r, fig.height=12, fig.width=13, echo=FALSE}
+cat_time_plot
+```
+
+
 
 # Cumulative Case Counts of Pango VoCs 
 
@@ -444,7 +482,6 @@ potential for a vaccine escape mechanism when observed in conjunction with other
 
 It is important to note that the Pango lineage identifier is dynamic, and is subject to change as the software and algorithm for lineage designation becomes more robust with a larger global dataset. As such, certain lineages designations for non-VoCs with S mutations may later be re-assigned to a VoC Pango lineage, and/or vice versa. 
 
-\
 The B.1.1.7 lineage has been particularly transmissible both in Ontario and globally, so the numbers are plotted separately for visual aid. This lineage originated in the United Kingdom (UK) in late 2020, and has since been observed in almost every country and global region where a positive COVID-19 case has been counted. 
 \
 \
@@ -586,14 +623,7 @@ tree_paths <- paste("/home/mwatson/COVID-19/surveillance_reports/07-Apr-2021/", 
                     sep="")
 tree_paths
 ```
-# Phylogenetic Analysis of Pango Lineage VoCs
-
-Phylogenetic trees are generated through a statistical procedure that infers the ancestry and
-similarity among sequences by considering their mutation profiles among with a model for mutation substitution rates. As such they represent the best possible relationship among a group of samples based on the mutation information available to the model. These relationships should not be considered as absolute, and are subject to biases related to sample quality and depth of sequencing coverage. 
-\
-
-
-```{r, echo=FALSE, warning=FALSE, fig.height=13, fig.width=12}
+```{r, echo=FALSE, warning=FALSE, fig.height=13, fig.width=12, include=FALSE}
 for (i in tree_paths) {
   tree <- read.tree(i)
   tree <- drop.tip(tree, "MN908947")
@@ -635,7 +665,7 @@ for (i in tree_paths) {
                   size = 2, shape = 16) +
     geom_tippoint(aes(x=x+0.000001, subset=date_cat == "All Past Weeks", label = label, colour = date_cat),
                   size = 2, shape = 16) +  
-  # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "ON-PHO", label = nml_lab),  size = 1.5, offset = 0.000005) +
+  #geom_tiplab(aes(x=x+0.000001, subset=date_cat == "Latest Week", label = nml_lab),  size = 1.5, offset = 0.000005) +
   # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "non-PHO", label = label),  size = 1.5, offset = 0.000005) +
     theme(plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm"),
         legend.text=element_text(size=12),
@@ -657,9 +687,30 @@ for (i in tree_paths) {
 }
 ```
 
+
+# Nextstrain Phylogenetic tree URLS
+
+Phylogenetic trees are generated through a statistical procedure that infers the ancestry and
+similarity among sequences by considering their mutation profiles among with a model for mutation substitution rates. As such they represent the best possible relationship among a group of samples based on the mutation information available to the model. These relationships should not be considered as absolute, and are subject to biases related to sample quality and depth of sequencing coverage. 
+
+Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthontario.ca/ncov/) represent a subset of all samples sequenced at PHO that were selected based on genome completeness and overall high sequencing quality. Therefore the trees may not be reflective of the VoC sample numbers in the province at any specific point in time. 
+
+
+[Nextstrain for PHO B.1.1.7 samples](https://nextstrain.publichealthontario.ca/ncov/?c=Pango.Lineage&f_Pango.Lineage=B.1.1.7&label=clade:20I/501Y.V1)
+\
+
+[Nextstrain for PHO B.1.351 samples](https://nextstrain.publichealthontario.ca/ncov/?c=Pango.Lineage&f_Pango.Lineage=B.1.351&label=clade:20H/501Y.V2)
+\
+
+[Nextstrain for PHO P.1 samples](https://nextstrain.publichealthontario.ca/ncov/?c=Pango.Lineage&f_Pango.Lineage=P.1&label=clade:20J/501Y.V3)
+\
+\
+
 # References
 
 1. Pango Lineages. https://cov-lineages.org/
+2. Nextstrain. https://nextstrain.org/
+
 \
 \
 \
