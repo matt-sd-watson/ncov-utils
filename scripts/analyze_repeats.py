@@ -33,6 +33,7 @@ def main():
     diff_name_identical = snp_dists[~snp_dists.sam_1.isin(identical_frame.sam_1)]
     diff_name_identical = diff_name_identical[~diff_name_identical.sam_1.isin(identical_frame.comparing)]
     diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1 not in x.comparing, axis=1)][snp_dists.distance == 0]
+    diff_name_identical = diff_name_identical[~diff_name_identical['sam_1'].isin(['MN908947'])]
 
     if len(diff_name_identical) != 0:
         diff_name_identical.to_csv("different_names_identical.csv", index=False)
@@ -51,6 +52,7 @@ def main():
             non_identical.append(record.id)
 
     n_counts_frame = pd.DataFrame(sam_n_counts)
+    non_identical.sort()
 
     if n_counts_frame.shape[0] != 0:
         n_counts_frame.sort_values(by=['sample_name'], ascending=True).to_csv("identical_sequences.csv", index=False)
