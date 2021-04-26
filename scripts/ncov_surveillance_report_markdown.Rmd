@@ -129,6 +129,8 @@ There are several areas for which SARS-CoV-2 genome sequencing contributes to th
 qc50_loc <- list.files("/home/mwatson/COVID-19/qc50/", pattern = "*.csv")
 qc_data <- read.table(paste("/home/mwatson/COVID-19/qc50/", qc50_loc, sep=""), header = T, sep = ',',
                       fill = TRUE, quote = "")
+qc_data <- subset(qc_data, Processed_results == "Y")
+# qc_data <- dplyr::distinct(qc_data)
 qc_data$date <- as.Date(qc_data$Login_Date, format = "%d%b%Y")
 
 qc_data <- qc_data[!is.na(qc_data$date),]
@@ -158,7 +160,6 @@ merged$new_name <- paste(merged$lineage_all, " ", "(", merged$total, ")", sep=""
 merged$region_counts <- paste(merged$HEALTH_UNIT_REPORTABLE, " ", "(", merged$lin_counts, ")", sep="")
 
 labels_over_2.5 <- subset(merged, percent >= 2.5)
-
 
 for (i in unique(merged$lineage_all)) {
   subset <- subset(merged, lineage_all == i)
@@ -196,7 +197,11 @@ meta.df <- qc_data %>%
                                             lineage_all == "B.1.1.318" | 
                                             lineage_all == "B.1.427" |
                                             lineage_all == "B.1.429" |
-                                            lineage_all == "B.1.526", 
+                                            lineage_all == "B.1.526" |
+                                            lineage_all == "B.1.617.1" |
+                                            lineage_all == "B.1.618" |
+                                            lineage_all == "B.1.617.2" |
+                                            lineage_all == "B.1.617.3",
                                             "VoI", "non-VoC/non-VoI"))) %>%
            mutate(lin.parent.grp = gsub("\\..*","",lineage_all)) 
 
@@ -214,8 +219,8 @@ meta.df.sub <- meta.df %>%
 # nrow(meta.df.sub)
 
 # Change from last reported (assume reporting every Wednesday)
-date_cat <- interval(ymd(Sys.Date() - 7), ymd(Sys.Date()))
-meta.df.sub$time_cat <- ifelse(meta.df.sub$Login.Date %within% date_cat, "Latest Week", "All Past Weeks")
+date_cat <- interval(ymd(Sys.Date() - 21), ymd(Sys.Date()))
+meta.df.sub$time_cat <- ifelse(meta.df.sub$Login.Date %within% date_cat, "Last Three Weeks", "All Past Weeks")
 
 time_cat_table <- as.data.frame(table(meta.df.sub$time_cat))
 colnames(time_cat_table) <- c("Week category", "Samples")
@@ -232,7 +237,9 @@ meta.df.sub %>%
   distinct(lineage_all) %>%
   dplyr::summarise(n = n())
 
-num_lineages <- data.frame(Category = "Number of unique Pango lineages",
+num_lineages <- data.frame(Category = paste("Number of unique Pango lineages ",
+                                            "(January 1, 2021-", format(Sys.time(), "%B %d %Y"),
+                                            ")", sep=""),
                            Number = length(unique(meta.df.sub$lineage_all)))
 
 
@@ -289,7 +296,7 @@ colnames(n.lin.grp) <- c("Parent Lineage Group", "Pango Lineage", "Counts", "Per
 n.lin.grp$Category <- ifelse(n.lin.grp$`Pango Lineage` %in% c("B.1.1.7",
                                                               "B.1.351", "P.1"), "VoC",
                              ifelse(n.lin.grp$`Pango Lineage` %in% c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526",
-              "B.1.617", "B.1.617.1", "B.1.617", "B.1.618"), "VoI", ""))
+              "B.1.617", "B.1.617.1", "B.1.617", "B.1.618", "B.1.617.2", "B.1.617.3"), "VoI", ""))
 
 
 ```
@@ -571,7 +578,7 @@ As part of PHO’s bioinformatic processing, all genomic sequences are routinely
 ## Unique Pango lineages
 
 ```{r, results='asis', echo=FALSE}
-kable(as.data.frame(num_lineages), caption = "Total Number of unique Pango Lineages")
+kable(as.data.frame(num_lineages))
 ```
 \
 ```{r, include=FALSE}
@@ -579,7 +586,7 @@ kable(as.data.frame(num_lineages), caption = "Total Number of unique Pango Linea
 ```
 ## Frequency of Pango lineages
 \
-A graphic depicting the relative frequency of Pango lineages assists in revealing the identities of the most frequent lineage designations assigned to PHO samples. Note that the samples numbers displayed below reflect recent Ontario sequences that have been processed on or after January 1, 2021.
+Pango lineages from sequenced samples from January 1, 2021 to the current report date. 
 \
 
 ```{r, echo=FALSE, fig.height=8, fig.width=9}
@@ -603,9 +610,9 @@ datatable(as.data.frame(n.lin.grp), extensions = 'Buttons',
 ```{r, include=F}
 # placeholder
 ```
-## Sequence categorization by epi week
+## Sequence Categories by Epidemiological week, 2021
 \
-An overview of the Pango lineage categories for this figure can be found in the Technical Notes section. 
+An overview of the Pango lineage categories for this figure can be found in the [Technical Notes](#technical-notes) section. 
 \
 ```{r, include=FALSE}
 cat_over_time <- meta.df %>% group_by(epi.wk.login, lineage.all.cat) %>% dplyr::summarise(samples = n())
@@ -625,7 +632,7 @@ cat_time_plot <- ggplot(cat_over_time, aes(x = epi.wk.login, y = samples, fill =
                                   100))
 
 voc_sep <- "B.1.1.7, B.1.351, P.1"
-voi_sep <- "P.2, P.3, B.1.525, R.1, B.1.1.318, B.1.427, B.1.429, B.1.526, B.1.617, B.1.617.1,B.1.618, B.1.2 with S:E484K"
+voi_sep <- "P.2, P.3, B.1.525, R.1, B.1.1.318, B.1.427, B.1.429, B.1.526, B.1.617, B.1.617.1, B.1.617.2, B.1.617.3, B.1.618, B.1.2 with S:E484K"
 
 designation_frame <- data.frame(Category = c("VoC", "VoI", "non-VoC/non-VoI"),
                                Included = c(voc_sep, voi_sep, "Any other lineage"))
@@ -747,7 +754,7 @@ ggplot(grouped_by_epi, aes(x = epi.wk.login, y = n, fill = lineage_id)) +
 # Variants of Concern (VoCs)
 
 Cumulative case counts for each lineage that is designated as a VoC. Sequence numbers and percentages represent recent case numbers from all Ontario Health Regions that were processed by PHO on or after January 1, 2021.\
-A lis tof the current Pango lineages that are classified as a VoC by PHO can be found in the Technical Notes section. 
+A lis tof the current Pango lineages that are classified as a VoC by PHO can be found in the  [Technical Notes](#technical-notes) section. 
 \
 ```{r, include = FALSE, echo=FALSE}
 subset_voc_date <- subset(qc_data_recent, lineage_all %in% voc & lineage_all != "None") %>%
@@ -1003,12 +1010,12 @@ plot_non_voc
 
 # Variants of Interest (VoIs)
 \
-A list of the current Pango lineages that are classified as VoIs by PHO can be found in the Technical Notes section. 
+A list of the current Pango lineages that are classified as VoIs by PHO can be found in the  [Technical Notes](#technical-notes) section. 
 
 ```{r, include = FALSE, echo=FALSE}
 
 voi_list <- c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526",
-              "B.1.617", "B.1.617.1", "B.1.618")
+              "B.1.617", "B.1.617.1", "B.1.618", "B.1.617.2", "B.1.617.3")
 
 subset_voi_date <- subset(qc_data_recent, lineage_all %in% voi_list & lineage_all != "None") %>%
   arrange(date) %>%
@@ -1041,7 +1048,7 @@ rect.s5 <- data.frame(xmin= (start.s5), xmax= (end.s5), ymin=-Inf, ymax=Inf)
 # set this specific order to place the blank cell next to b117 and have other 
 # two vocs on separate line
 rolling_cases_voi$lin_fac <- factor(rolling_cases_voi$lineage, levels=c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526",
-              "B.1.617", "B.1.617.1", "B.1.618"))
+              "B.1.617", "B.1.617.1", "B.1.618", "B.1.617.2", "B.1.617.3"))
 
 plot_voi <- ggplot(rolling_cases_voi, aes(x = date, y = cumcases, color = lin_fac)) + geom_point(size = 3) + # + scale_color_manual(values = c(VOC.pal)) +
   # facet wrap with as fable allows for blank cell in col 2 cell 1
@@ -1082,6 +1089,78 @@ datatable(as.data.frame(max_counts_voi), extensions = 'Buttons',
           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
 \
+
+
+## VoI Sequence Distribution by Epidemiological Week
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=16, fig.height=10}
+
+library(paletteer)
+
+cols.voi <- c("#31B98F", "639B8B","#B7B7B7",  "#CF913C", "#819EE9", "#741F39", "#D49998","#1F343C", "#C144BC")
+
+voi_groupings <- meta.df.sub[meta.df.sub$lineage_all %in% voi_list,] 
+
+voi_groupings <- voi_groupings %>%
+
+  group_by(epi.wk.login, lineage_all) %>%
+
+  summarise(n = n()) %>%
+
+  mutate(rel.freq = 100*(n/sum(n))) %>%
+
+  arrange(desc(n))
+
+
+ggplot(voi_groupings, aes(x = epi.wk.login, y = n, fill = lineage_all)) +
+
+  geom_bar(stat = "identity",) + 
+  scale_fill_manual(values = cols.voi) +
+  #, position="dodge"
+
+    theme(panel.grid.major = element_blank(),
+
+                 panel.grid.minor = element_blank(),
+
+                 panel.background = element_blank(),
+
+                 plot.margin = unit(c(0,0,0,0), "cm"),
+
+                axis.line = element_line(color="black"),
+
+                legend.text=element_text(size=14),
+
+                legend.title=element_text(size=16, face = "bold"),
+
+                legend.position=c(0.94, 0.8),
+
+                legend.box = "vertical",
+
+                legend.box.margin = margin(0.05,0.05,0.05,0.05,"cm"),
+
+                legend.box.background = element_rect(colour = "black"),
+
+                legend.spacing.y = unit(0.1, "cm"),
+
+                legend.key.width = unit(0.3, "cm"),
+
+                legend.key.height = unit(0.3, "cm"),
+
+                legend.spacing.x = unit(0.3, 'cm'),
+              axis.text.x = element_text(angle = 0, size = 16),
+                       axis.text.y = element_text(size = 16),
+          axis.title.x = element_text(angle = 0, size = 16, margin = margin(t = 20, r = 0, b = 0, l = 0)),
+                       axis.title.y = element_text(size = 16)) +
+  
+
+  #scale_fill_manual(values = cols.lin) +
+
+  scale_y_continuous("No. samples") +
+  coord_capped_cart(left='both', bottom = 'both') +
+  labs(fill='Pango Lineage') + xlab("Epidemiological Week")
+
+  # scale_color_paletteer_d(awtools, a_palette)
+```
+
 
 ```{r, warning=FALSE, fig.height=20, fig.width=14, echo=FALSE, message=FALSE, include=F}
 plot_voi
@@ -1177,7 +1256,7 @@ It is important to note that the Pango lineage identifier is dynamic, and is sub
 
 ```{r, results='asis', echo=FALSE}
 # these are the combined VoC and VoI mutations
-lineages <- c("B.1.1.7", "B.1.351", "P.1", "P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526", "B.1.526.1", "B.1.617", "B.1.617.1", "B.1.618")
+lineages <- c("B.1.1.7", "B.1.351", "P.1", "P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526", "B.1.526.1", "B.1.617", "B.1.617.1", "B.1.618", "B.1.617.2", "B.1.617.3")
 
 non_voc_voi_counts <- mut_lin_date_grouped_final[! mut_lin_date_grouped_final$lineage %in% lineages,]
 
