@@ -1,9 +1,11 @@
 ---
-title: "SARS-CoV2 Genomic Surveillance Report"
+title: "SARS-CoV-2 Genomic Surveillance Report"
 # <img src=\"pho-smlogo-en-removebg-preview.png\" style=\"float: left; width 50;\"/> "
 author: "Public Health Ontario"
 # Establish period for one week to day of execution
-date: "Period: `r format(Sys.time() - 7*24*3600, '%B %d, %Y')` to `r format(Sys.time(), '%B %d, %Y')`"
+date: "Updated:  `r format(Sys.time(), '%B %d, %Y')`"
+# allow for date range that is previous week based on multiplying days by hours by seconds
+# "Period: `r format(Sys.time() - 7*24*3600, '%B %d, %Y')` to `r format(Sys.time(), '%B %d, %Y')`"
 mainfont: Arial
 fontsize: 11
 link-citations: yes
@@ -33,7 +35,7 @@ output:
   color: dimgray;
 }
 .date {  
-  font-size: 24px;
+  font-size: 14px;
   color: dimgray;
 }
   h1 { /* Header 1 */
@@ -41,8 +43,18 @@ output:
   color: dimgray;
 }
 h2 { /* Header 2 */
-    font-size: 11pt;
+    font-size: 14pt;
   color: dimgray;
+}
+body { /* Normal */
+    font-size: 12pt;
+    font-family: "Arial"; 
+  color: black;
+}
+td { /* Table */
+    font-size: 12pt;
+    font-family: "Arial"; 
+  color: black;
 }
 </style>
 
@@ -164,7 +176,8 @@ for (i in unique(merged$lineage_all)) {
   assign(plot_name, plot_animated)
 }
 ```
-
+\
+\
 ```{r, echo = FALSE, include=FALSE}
 meta.df <- qc_data %>%
             mutate(Login.Date = as.Date(Login_Date, format =  "%d%b%Y")) %>%
@@ -240,6 +253,9 @@ n.lin.grp <- meta.df.sub %>%
               dplyr::summarise(n = n()) %>%
               ungroup()
 
+# remove any that do not have a parent lineage
+# n.lin.grp <- n.lin.grp[n.lin.grp$`Parent Lineage Group` != "",]
+
 # Use 9 palettes from the colorspace package, one for each parent lineage
 palette <- c( "Purp", "Greens", "Purples", "Mint","Teal", "PinkYl","PuRd","Burg", "RedOr")
 
@@ -272,28 +288,163 @@ n.lin.grp$percent <- round( 100 * (n.lin.grp$n / sum(time_cat_table$Samples)), 2
 colnames(n.lin.grp) <- c("Parent Lineage Group", "Pango Lineage", "Counts", "Percentage")
 n.lin.grp$Category <- ifelse(n.lin.grp$`Pango Lineage` %in% c("B.1.1.7",
                                                               "B.1.351", "P.1"), "VoC",
-                             ifelse(n.lin.grp$`Pango Lineage` %in% c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526"), "VoI", ""))
+                             ifelse(n.lin.grp$`Pango Lineage` %in% c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526",
+              "B.1.617", "B.1.617.1", "B.1.617", "B.1.618"), "VoI", ""))
 
 
 ```
 
 # Sequencing summary
 
-Sequence numbers are classified by having been processed in the most recent week, or
-any other previous week. Note that the sample numbers displayed below reflect recent Ontario sequences that have been processed on or after January 1, 2021. 
+The number of genome sequences are summarized below and classified by the total number as of this report and the number of genomes sequenced in the most recent week by Public Health Ontario.
 \
 \
-
 ```{r, results='asis', echo=FALSE}
-kable(as.data.frame(time_cat_table), caption = "Weekly sequence count distributions")
+kable(as.data.frame(time_cat_table), caption = "Number of genome sequences by week")
 ```
 
-## Sequencing Summary, 2020
-\
-\
+## Sequencing Summary, 2020 and 2021
 
-```{r, echo=F, message=F, warning=F, fig.width=13}
+```{r, echo=F, message=F, warning=F, fig.width=16, fig.height=10}
 
+## THIS IS CODE FOR SEQUENCING SUMMARY FOR BOTH 2020 and 2021
+### SARAH SECTION 2 - Weekly Sequencing Summary ---- ###
+# Generate a list of epi weeks in the dataset
+
+epiwk.list <- meta.df %>%
+
+ 
+
+                mutate(epi.wk.login.ord = epi.wk.login) %>%
+
+ 
+
+                distinct(epi.wk.login, epi.wk.login.ord) %>%
+
+ 
+
+                separate(epi.wk.login.ord, into = c("yr", "wk"), sep = "-") %>%
+
+ 
+
+                arrange(yr, wk) %>%
+
+ 
+
+                distinct(epi.wk.login)
+
+
+# Define the colour for the grey box
+
+grey_trans <- rgb(179, 179, 179, max = 255, alpha = 10)
+
+# identify most recent epiweek
+
+ 
+
+end.epi.wk <- paste(epiyear(max(meta.df$Login.Date)), sprintf( "%02d", epiweek(max(meta.df$Login.Date))), sep = "-")
+
+## create barplot of sequences, filtered to those with genome coverage >90%, epiweek login date in 2020
+
+meta.df$genome_completeness <- as.numeric(meta.df$genome_completeness)
+
+  ggplot(data=subset(meta.df, genome_completeness >= 0.9)) +
+
+                       #& epi.wk.login < '2021-01')) +
+
+     geom_rect(aes(xmin = which(epiwk.list==end.epi.wk)-2.5,
+
+                  xmax = which(epiwk.list==end.epi.wk)+0.5,
+
+ 
+
+                  ymin=-Inf,
+
+ 
+
+                  ymax=Inf),
+
+ 
+
+              fill=grey_trans) + annotate("text", x = which(epiwk.list==end.epi.wk)-2.45, y = Inf,
+
+ 
+
+             label = "",
+
+ 
+
+             size = 5.5, vjust = 1.2, hjust = -.03, color = "black") +
+
+   # use labs tag to place the comment for sequencing over the rectangle
+    labs(tag = "Samples recieved\nduring this time\nperiod may not\nyet be sequenced") +
+    theme(plot.tag.position = c(0.96, 0.9)) +
+        #annotate("text", x = which(epiwk.list==end.epi.wk)-9, y = Inf,
+
+             #label = "Samples recieved during this time \nperiod may not yet be sequenced",
+
+             #size = 4, vjust = 1, color = "black") +
+
+ 
+
+    geom_bar(aes(x=epi.wk.login)) +
+
+ 
+
+    theme(axis.text.x = element_text(angle = 90, size = 16),
+ 
+
+          axis.text.y = element_text(size = 16),
+
+ 
+
+          axis.title.x = element_text(size = 16, margin = margin(t = 20, r = 0, b = 0, l = 0)),
+
+ 
+
+          axis.title.y = element_text(size = 16),
+
+ 
+
+          plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+
+ 
+
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+
+ 
+
+          panel.background = element_blank(), axis.line = element_line(colour = "black"),
+
+ 
+
+          legend.position = c(0.87, 0.75),
+
+ 
+
+          legend.title = element_text(size = 16),
+
+ 
+
+          legend.text = element_text(size = 14)) +
+
+ 
+
+    labs(fill = "Category") + xlab("Epidemiological Week") + ylab("Sample Counts") +
+
+ 
+
+    coord_capped_cart(left='both', bottom = 'both') +
+
+        scale_x_discrete("Epidemiological Week") +
+
+ 
+
+    scale_y_continuous("No. samples", expand = c(0,10))
+```
+  
+```{r, echo=F, message=F, warning=F, fig.width=13, include=FALSE}
+## THIS CODE CORERSPONDS TO THE SEQUENCING SUMMARY FOIR 2020. It has been parked for now. 
 ### SARAH SECTION 2 - Weekly Sequencing Summary ---- ###
 
 ## load packages
@@ -312,7 +463,7 @@ meta.df$genome_completeness <- as.numeric(meta.df$genome_completeness)
 
           axis.text.y = element_text(size = 14),
 
-          axis.title.x = element_text(size = 14),
+          axis.title.x = element_text(size = 14, margin = margin(t = 20, r = 0, b = 0, l = 0)),
 
           axis.title.y = element_text(size = 14),
 
@@ -334,10 +485,14 @@ meta.df$genome_completeness <- as.numeric(meta.df$genome_completeness)
 
     scale_y_continuous("No. samples", expand = c(0,10)) 
 ```
+\
+\
+```{r, include=FALSE}
+#placeholder
+```
 
-## Sequencing Summary, 2021
-
-```{r, echo=F, message=F, warning=F, fig.width=13}
+```{r, echo=F, message=F, warning=F, fig.width=13, fig.height=9, include=FALSE}
+# THIS CODE CORRESPONDS TO SEQUENCING SUMAMRIES FOR 2021. It has been parked for now
 ## sarah code part II
 ## get the start and end points for highlighted regions
 
@@ -374,7 +529,7 @@ ggplot(data=subset(meta.df, genome_completeness >= 0.9 & epi.wk.login >= '2021-0
               inherit.aes = FALSE) +
 
     geom_text(data=rect, aes(x = xmin, y = ymax,
-    label = "Samples recieved during this time \nperiod may not yet be sequenced"),
+    label = "Samples recieved during this\ntime period may not yet\nbe sequenced"),
              size = 4, vjust = 1.2, hjust = -0.03, color = "black") +
 
     geom_bar(aes(x=epi.wk.login)) +
@@ -387,7 +542,7 @@ ggplot(data=subset(meta.df, genome_completeness >= 0.9 & epi.wk.login >= '2021-0
 
           axis.title.y = element_text(size = 14),
 
-          plot.margin = unit(c(0, 0, 5, 0), "cm"),
+          plot.margin = unit(c(0, 0, 1.5, 0), "cm"),
 
           panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
 
@@ -406,81 +561,84 @@ ggplot(data=subset(meta.df, genome_completeness >= 0.9 & epi.wk.login >= '2021-0
     scale_y_continuous("No. samples", expand = c(0,10)) 
 ```
 
-
-
 # Pango Lineages
 
+\
+As part of PHO’s bioinformatic processing, all genomic sequences are routinely analyzed using the pangolin tool (https://cov-lineages.org/index.html) and receive a Pango lineage designation. The dynamic Pango nomenclature system allows for the classification of SARS-CoV-2 genetic diversity. Reassignments of Pango lineages are expected to occur as more SARS-CoV-2 genome sequences become available, thus providing a more complete picture of SAS-CoV-2 evolution and more accurate lineage assignment.
+\
+\
 
 ## Unique Pango lineages
-
-\
 
 ```{r, results='asis', echo=FALSE}
 kable(as.data.frame(num_lineages), caption = "Total Number of unique Pango Lineages")
 ```
+\
+```{r, include=FALSE}
 
+```
 ## Frequency of Pango lineages
 \
-
-A graphic depicting the relative frequency of Pango lineages among samples sequenced at
-PHO reveals the lineage designations that are more transmissible in Ontario over a set period
-of time. Note that the samples numbers displayed below reflect recent Ontario sequences that have been processed on or after January 1, 2021.
+A graphic depicting the relative frequency of Pango lineages assists in revealing the identities of the most frequent lineage designations assigned to PHO samples. Note that the samples numbers displayed below reflect recent Ontario sequences that have been processed on or after January 1, 2021.
 \
-
 
 ```{r, echo=FALSE, fig.height=8, fig.width=9}
 pl.lin
 ```
+\
+\
+\
+```{r, include=F}
+# placeholder
+```
 
 ## Table of Pango lineage counts 
-
+\
 ```{r, results='asis', echo=FALSE}
 
 datatable(as.data.frame(n.lin.grp), extensions = 'Buttons',
           options = list(pageLength = 15, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
-
-## Sequence designation by epi week
-
-Pango lineages are designated based on the following assignment criteria: 
-
+\
+```{r, include=F}
+# placeholder
+```
+## Sequence categorization by epi week
+\
+An overview of the Pango lineage categories for this figure can be found in the Technical Notes section. 
+\
 ```{r, include=FALSE}
 cat_over_time <- meta.df %>% group_by(epi.wk.login, lineage.all.cat) %>% dplyr::summarise(samples = n())
 cat_time_plot <- ggplot(cat_over_time, aes(x = epi.wk.login, y = samples, fill = lineage.all.cat)) +
   geom_bar(stat = "identity", position = "stack") +
-  theme(axis.text.x = element_text(angle = 90, size = 14),
-        axis.text.y = element_text(size = 14),
-        axis.title.x = element_text(size = 14),
-        axis.title.y = element_text(size = 14),
+  theme(axis.text.x = element_text(angle = 90, size = 16),
+        axis.text.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
                                    plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"),
-        legend.title = element_text(size = 14),
-  legend.text = element_text(size = 12)) + labs(fill = "Category") + xlab("Epidemiological Week") + ylab("Sample Counts") + ylim(c(0, max(cat_over_time$samples) + 1000)) +
+        legend.title = element_text(size = 16),
+  legend.text = element_text(size = 13)) + labs(fill = "Category") + xlab("Epidemiological Week") + ylab("Sample Counts") + ylim(c(0, max(cat_over_time$samples) + 1000)) +
   # specify y axis line breaks
   scale_y_continuous(breaks = seq(0, plyr::round_any(max(cat_over_time$samples), 100) + 1000,
                                   100))
 
 voc_sep <- "B.1.1.7, B.1.351, P.1"
-voi_sep <- "P.2, P.3, B.1.525, R.1, B.1.1.318, B.1.427, B.1.429, B.1.526, B.1.2 with S:E484K"
+voi_sep <- "P.2, P.3, B.1.525, R.1, B.1.1.318, B.1.427, B.1.429, B.1.526, B.1.617, B.1.617.1,B.1.618, B.1.2 with S:E484K"
 
 designation_frame <- data.frame(Category = c("VoC", "VoI", "non-VoC/non-VoI"),
                                Included = c(voc_sep, voi_sep, "Any other lineage"))
 
 
 ```
-
-```{r, fig.height=12, fig.width=13, echo=FALSE}
-kable(as.data.frame(designation_frame), caption = "Pango lineage designation guide",
-      align=rep('l', 5))
-```
-
-
 ```{r, fig.height=12, fig.width=13, echo=FALSE, include=F}
 cat_time_plot
 ```
-
-```{r, fig.width = 15, fig.height = 10, echo=F, warning=F, message=F}
+\
+\
+\
+```{r, fig.width = 18, fig.height = 10, echo=F, warning=F, message=F}
 # Order the epi week for the rectangle
 
 epiwk.list <- meta.df.sub %>%
@@ -529,9 +687,9 @@ ggplot(grouped_by_epi, aes(x = epi.wk.login, y = n, fill = lineage_id)) +
 
               fill=grey_trans) + annotate("text", x = which(epiwk.list==end.epi.wk)-2.45, y = Inf,
 
-             label = "Samples recieved during this time \nperiod may not yet be sequenced",
+             label = "Samples recieved during this\ntime period may not yet\nbe sequenced",
 
-             size = 4, vjust = 1, hjust = 0, color = "black") +
+             size = 5.5, vjust = 1.2, hjust = -.03, color = "black") +
   geom_bar(stat = "identity") +
       theme(panel.grid.major = element_blank(),
 
@@ -543,9 +701,9 @@ ggplot(grouped_by_epi, aes(x = epi.wk.login, y = n, fill = lineage_id)) +
 
             axis.line = element_line(color="black"),
 
-            legend.text=element_text(size=12),
+            legend.text=element_text(size=14),
 
-            legend.title=element_text(size=14, face = "bold"),
+            legend.title=element_text(size=16, face = "bold"),
 
             legend.position=c(0.1, 0.9),
 
@@ -559,10 +717,10 @@ ggplot(grouped_by_epi, aes(x = epi.wk.login, y = n, fill = lineage_id)) +
 
             legend.key.width = unit(0.3, "cm"),
             legend.key.height = unit(0.3, "cm"),
-            axis.text.y = element_text(size = 14),
-            axis.text.x = element_text(size = 14),
-            axis.title.y = element_text(size = 16),
-            axis.title.x = element_text(size = 16),
+            axis.text.y = element_text(size = 18),
+            axis.text.x = element_text(size = 18),
+            axis.title.y = element_text(size = 18),
+            axis.title.x = element_text(size = 18, margin = margin(t = 20, r = 0, b = 0, l = 0)),
 
             legend.spacing.x = unit(0.3, 'cm')) +
 
@@ -579,13 +737,18 @@ ggplot(grouped_by_epi, aes(x = epi.wk.login, y = n, fill = lineage_id)) +
     coord_capped_cart(left='both', bottom = 'right')
 
 ```
-
-
-# Variants of Concern (VoCs )
-
-Cumulative case counts for each lineage that is designated as a VoC. Sequence numbers and percentages represent recent case numbers from all Ontario Health Regions that were processed by PHO on or after January 1, 2021. 
 \
+\
+```{r, include=F}
+# placeholder
+```
 
+
+# Variants of Concern (VoCs)
+
+Cumulative case counts for each lineage that is designated as a VoC. Sequence numbers and percentages represent recent case numbers from all Ontario Health Regions that were processed by PHO on or after January 1, 2021.\
+A lis tof the current Pango lineages that are classified as a VoC by PHO can be found in the Technical Notes section. 
+\
 ```{r, include = FALSE, echo=FALSE}
 subset_voc_date <- subset(qc_data_recent, lineage_all %in% voc & lineage_all != "None") %>%
   arrange(date) %>%
@@ -623,7 +786,7 @@ rect.s5 <- data.frame(xmin= (start.s5), xmax= (end.s5), ymin=-Inf, ymax=Inf)
 # two vocs on separate line
 rolling_cases$lin_fac <- factor(rolling_cases$lineage, levels=c("P.1","B.1.351", "B.1.1.7"))
 
-plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases, color = lin_fac)) + geom_point() +
+plot_voc <- ggplot(rolling_cases, aes(x = date, y = cumcases, color = lin_fac)) + geom_point(size = 3) +
   scale_color_manual(values = c(VOC.pal)) +
   # facet wrap with as fable allows for blank cell in col 2 cell 1
   # https://stackoverflow.com/questions/56447366/ordering-placement-of-empty-facet-when-using-facet-wrap
@@ -647,12 +810,18 @@ plot_1 <- ggplot(rolling_cases, aes(x = date, y = cumcases, color = lin_fac)) + 
     xlab("Login Date") +
     ylab("Cumulative number of sequences") + scale_x_date(date_labels = "%b-%Y")
 ```
-
+\
+\
 ```{r, warning=FALSE, fig.height=20, fig.width=14, echo=FALSE}
-plot_1
+plot_voc
+```
+\
+\
+```{r, include=FALSE}
+#placeholder
 ```
 
-## Relative frequency by Public Health unit of VoCs
+## Relative frequency by Public Health Unit of VoCs
 
 The weekly tracking of the distribution of case counts of VoCs by Ontario Health Unit will assist in identifying potential outbreak locations and provide regional monitoring of variants that may have
 large impacts on population health, vaccine response, and transmission rates. These data
@@ -666,7 +835,6 @@ pie_chart_B.1.1.7
 pie_chart_B.1.351
 pie_chart_P.1
 ```
-\
 
 ```{r, echo=FALSE, include = FALSE}
 # make sure that the nextclade data is taken from the qc50 sequences and not all
@@ -829,19 +997,110 @@ plot_b117
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=16, fig.width=17,include=F}
 plot_voc_no_b117
 ```
-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=12.5, fig.width=17, include=F}
 plot_non_voc
 ```
+
+# Variants of Interest (VoIs)
 \
+A list of the current Pango lineages that are classified as VoIs by PHO can be found in the Technical Notes section. 
+
+```{r, include = FALSE, echo=FALSE}
+
+voi_list <- c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526",
+              "B.1.617", "B.1.617.1", "B.1.618")
+
+subset_voi_date <- subset(qc_data_recent, lineage_all %in% voi_list & lineage_all != "None") %>%
+  arrange(date) %>%
+  group_by(lineage_all, date) %>% 
+  dplyr::summarise(lin_counts = n())
+
+rolling_cases_voi <- subset_voi_date %>% group_by(lineage_all, .drop = FALSE) %>%
+  mutate(cumcases = cumsum(lin_counts))
+
+setnames(rolling_cases_voi, old = c('lineage_all'), new = c('lineage'))
+
+max_date_each_voi <- rolling_cases_voi %>% group_by(lineage) %>% filter(date == max(date))
+
+# colour palette for VOCs
+
+## get the start and end points for highlighted regions
+
+  # start point = 3 weeks before most recent login date
+
+start.s5 <- (max(rolling_cases$date) - 21)
+
+  # end point = most recent login date
+
+end.s5 <- max(rolling_cases$date)
+
+  # create rectangle frame to call for figure
+
+rect.s5 <- data.frame(xmin= (start.s5), xmax= (end.s5), ymin=-Inf, ymax=Inf)
+
+# set this specific order to place the blank cell next to b117 and have other 
+# two vocs on separate line
+rolling_cases_voi$lin_fac <- factor(rolling_cases_voi$lineage, levels=c("P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526",
+              "B.1.617", "B.1.617.1", "B.1.618"))
+
+plot_voi <- ggplot(rolling_cases_voi, aes(x = date, y = cumcases, color = lin_fac)) + geom_point(size = 3) + # + scale_color_manual(values = c(VOC.pal)) +
+  # facet wrap with as fable allows for blank cell in col 2 cell 1
+  # https://stackoverflow.com/questions/56447366/ordering-placement-of-empty-facet-when-using-facet-wrap
+  facet_wrap(~lin_fac, ncol=1, scales = "free_y", as.table = F) +
+  geom_rect(data=rect.s5, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),
+               color="grey30",alpha=0.25, inherit.aes = FALSE) +
+  theme_bw() + theme(axis.text.x = element_text(angle = 0, size = 14),
+                       axis.text.y = element_text(size = 14),
+                       title = element_text(size = 16),
+                       axis.title.x = element_text(vjust=-0.5, size = 16),
+                       strip.text = element_text(size = 18),
+                       axis.title.y = element_text(size = 16),
+                       plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+          legend.position = "none",
+                       panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                       panel.background = element_blank(), axis.line = element_line(colour = "black"),
+          strip.background =element_rect(fill="white")) +
+   geom_line(color='black',data = rolling_cases_voi, aes(x = date, y = cumcases)) +
+     geom_text(data=rect.s5, aes(x = xmin, y = ymin, label = "Samples recieved \nduring this time period\nmay not yet be\nsequenced"), size = 5, vjust = -1, hjust = -0.05, color = "black") +
+    # ggtitle(paste("Watchlist lineages (VoC) as of ", format(last(rolling_cases$date), "%b-%d-%Y"), #    sep="")) +
+    xlab("Login Date") +
+    ylab("Cumulative number of sequences") + scale_x_date(date_labels = "%b-%Y") +
+  scale_y_continuous(breaks = pretty_breaks())
+
+
+
+```
+
+
+## VoI Sequence Numbers
+
+```{r, results='asis', echo=FALSE, warning=FALSE}
+max_counts_voi <- rolling_cases_voi %>% group_by(lin_fac) %>% filter(cumcases == max(cumcases))
+max_counts_voi <- subset(max_counts_voi, select = c(lineage, cumcases)) %>% arrange(-cumcases)
+colnames(max_counts_voi) <- c("lineage", "Sequence number")
+datatable(as.data.frame(max_counts_voi), extensions = 'Buttons',
+          options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+```
 \
+
+```{r, warning=FALSE, fig.height=20, fig.width=14, echo=FALSE, message=FALSE, include=F}
+plot_voi
+```
+
+
 
 # Mutation distributions
 
 A table comprising the total counts and percentage of samples that have particular mutations can demonstrate the patterns of mutations across both VoC and non-VoC lineages. Characterization of these mutation patterns can assist in revealing the identity of mutations that may contribute to increased levels of clade and lineage transmission.\
-Percentages include the percentage of all samples in the specific category (VoC or non-VoC) that have this mutation. 
 \
-
+Percentages include the percentage of all samples in the specific category (VoC or non-VoC) that have this mutation. Blank cells indicate that the mutation was not yet observed in the particular sample category (VoC or non-VoC) for samples sequenced at PHO. \
+Information on the specific mutation profiles of Pango lineages can be found at: \
+[Outbreak.info](https://outbreak.info/)
+\
+\
+```{r, include=F}
+# placeholder
+```
 ## Mutation frequencies for the Spike (S) protein
 
 ```{r, include=FALSE}
@@ -885,12 +1144,13 @@ colnames(all_muts_frame_no_voc) <- c("mutation", "non_VoC_samples", "Percent_non
 all_muts_frame_no_voc <- all_muts_frame_no_voc %>% arrange(-Percent_non_VoC)
 
 ```
-\
+
 ```{r, results='asis', echo=FALSE}
 merge_mutations <- merge(all_muts_frame, all_muts_frame_no_voc, by.x = "mutation",
                          by.y = "mutation", all=T) %>% subset(select=c(-Gene.x)) %>% arrange(-Percent_VoC)
 setnames(merge_mutations, "Gene.y", "Gene")
 only_spike <- subset(merge_mutations, Gene == "S")
+rownames(only_spike) <- NULL
 datatable(as.data.frame(only_spike), extensions = 'Buttons',
           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
@@ -899,36 +1159,39 @@ datatable(as.data.frame(only_spike), extensions = 'Buttons',
 datatable(as.data.frame(all_muts_frame_no_voc), extensions = 'Buttons',
           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
-
+\
+\
 ```{r, results='asis', echo=FALSE, include=F}
 datatable(as.data.frame(all_muts_frame), extensions = 'Buttons',
           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
 
-## Pango lineage distribution among spike (S) protein mutations of concern
-
+## Pango lineage distribution among spike (S) protein mutations of concern for non-VoC/VoIs
+\
 Tracking the distribution of lineages among the mutations of concern observed in the Spike protein S, 
-which currently includes S:E484K and S:N501Y, allows for the identification of non-VoC lineages
-that carry mutations of concern. Spike mutations are correlated to increased transmissability and the
-potential for a vaccine escape mechanism when observed in conjunction with other mutations. Spike protein mutations S:E484K and S:N501Y have been observed both together and individually in Pango VoC and non-VoC lineages, so monitoring their frequency across all lineages will assist in tracking the phylogenetic power of these mutations. 
+which currently includes S:E484K and S:N501Y, allows for the identification of non-VoC and non-VoI lineages that carry mutations of concern. Spike mutations are correlated to increased transmissability and the potential for a vaccine escape mechanism when observed in conjunction with other mutations. Spike protein mutations S:E484K and S:N501Y have been observed both together and individually in Pango VoC and non-VoC lineages, so monitoring their frequency across all lineages will assist in tracking the phylogenetic power of these mutations. 
 
 It is important to note that the Pango lineage identifier is dynamic, and is subject to change as the software and algorithm for lineage designation becomes more robust with a larger global dataset. As such, certain lineages designations for non-VoCs with S mutations may later be re-assigned to a VoC Pango lineage, and/or vice versa. 
+\
+\
 
 ```{r, results='asis', echo=FALSE}
+# these are the combined VoC and VoI mutations
+lineages <- c("B.1.1.7", "B.1.351", "P.1", "P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526", "B.1.526.1", "B.1.617", "B.1.617.1", "B.1.618")
+
+non_voc_voi_counts <- mut_lin_date_grouped_final[! mut_lin_date_grouped_final$lineage %in% lineages,]
+
+max_date_each_lin_non_voc <- non_voc_voi_counts %>% group_by(mutation, lineage) %>% filter(date == max(date))
+
 table_mutations_non_voc <- subset(max_date_each_lin_non_voc, select = c(mutation, lineage, cumcases)) %>%
   arrange(-cumcases)
 setnames(table_mutations_non_voc, "cumcases", "samples")
 datatable(as.data.frame(table_mutations_non_voc), extensions = 'Buttons',
           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 ```
-
-
-
-
+\
+\
 ```{r, include=FALSE}
-
-lineages <- c("B.1.1.7", "B.1.351", "P.2", "B.1.525", "P.1",  "B.1.526", "A.23.1",
-              "B.1.351.1", "B.1.351.2", "B.1.526.1", "B.1.526.2")
 
 subset_other_lineages <- subset(qc_data_recent, ! lineage_all %in% lineages) %>%
   arrange(date) %>%
@@ -1075,7 +1338,21 @@ Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthont
 
 1. Pango Lineages. https://cov-lineages.org/
 2. Nextstrain. https://nextstrain.org/
-
+3. Outbreak.info. https://outbreak.info/
 \
+\
+```{r, include=FALSE}
+#placeholder
+```
+
+# Technical Notes
+
+## Pango lineage assignment categories
+As of this date of reporting, Pango lineages are categorized based on the following assignment criteria: 
+\
+```{r, fig.height=12, fig.width=13, echo=FALSE}
+kable(as.data.frame(designation_frame), caption = "Pango lineage designation guide",
+      align=rep('l', 5))
+```
 \
 \
