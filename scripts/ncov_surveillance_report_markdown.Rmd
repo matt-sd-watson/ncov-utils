@@ -7,7 +7,7 @@ date: "Updated:  `r format(Sys.time(), '%B %d, %Y')`"
 # allow for date range that is previous week based on multiplying days by hours by seconds
 # "Period: `r format(Sys.time() - 7*24*3600, '%B %d, %Y')` to `r format(Sys.time(), '%B %d, %Y')`"
 mainfont: Arial
-fontsize: 11
+fontsize: 12
 link-citations: yes
 urlcolor: purple
 linkcolor: purple
