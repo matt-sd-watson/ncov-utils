@@ -2,9 +2,7 @@
 title: "SARS-CoV-2 Genomic Surveillance Report"
 # <img src=\"pho-smlogo-en-removebg-preview.png\" style=\"float: left; width 50;\"/> "
 author: "Public Health Ontario"
-# Establish period for one week to day of execution
 date: "Updated:  `r format(Sys.time(), '%B %d, %Y')`"
-# allow for date range that is previous week based on multiplying days by hours by seconds
 # "Period: `r format(Sys.time() - 7*24*3600, '%B %d, %Y')` to `r format(Sys.time(), '%B %d, %Y')`"
 mainfont: Arial
 fontsize: 12
@@ -12,6 +10,7 @@ link-citations: yes
 urlcolor: purple
 linkcolor: purple
 citecolor: purple
+always_allow_html: true
 output:
   html_document:
     toc: yes
@@ -20,10 +19,9 @@ output:
     number_sections: no
     theme: readable
   pdf_document:
+    
     toc: yes
     toc_depth: '4'
-    includes:
-      in_header: header.tex
 ---
  <style type="text/css">
  .title {
@@ -212,7 +210,6 @@ meta.df <- meta.df[!duplicated(meta.df$WGS_Id),]
 meta.df.sub <- meta.df %>% 
                 filter(lineage_all != "None") %>%
                 filter(!is.na(Login.Date) & Login.Date >= "2021-01-01")
-  
 
 #----.... Sequencing Statistics ....----
 # Total number of samples sequenced since Jan 1, 2021 (unique, QC 50%, PASS?)
@@ -220,16 +217,14 @@ meta.df.sub <- meta.df %>%
 
 # Change from last reported (assume reporting every Wednesday)
 date_cat <- interval(ymd(Sys.Date() - 21), ymd(Sys.Date()))
-meta.df.sub$time_cat <- ifelse(meta.df.sub$Login.Date %within% date_cat, "Last Three Weeks", "All Past Weeks")
+meta.df$time_cat <- ifelse(meta.df$Login.Date %within% date_cat, "Last Three Weeks", "All Past Weeks")
 
-time_cat_table <- as.data.frame(table(meta.df.sub$time_cat))
+time_cat_table <- as.data.frame(table(meta.df$time_cat))
 colnames(time_cat_table) <- c("Week category", "Samples")
   
 # nrow(meta.df.sub.recent)
 
-
 #>> Add Sarah's code here to show the proportion of total sequenced
-
 
 #----.... Lineage Statistics ....----
 # Total number of lineages
@@ -319,27 +314,11 @@ kable(as.data.frame(time_cat_table), caption = "Number of genome sequences by we
 # Generate a list of epi weeks in the dataset
 
 epiwk.list <- meta.df %>%
-
- 
-
                 mutate(epi.wk.login.ord = epi.wk.login) %>%
-
- 
-
                 distinct(epi.wk.login, epi.wk.login.ord) %>%
-
- 
-
                 separate(epi.wk.login.ord, into = c("yr", "wk"), sep = "-") %>%
-
- 
-
                 arrange(yr, wk) %>%
-
- 
-
                 distinct(epi.wk.login)
-
 
 # Define the colour for the grey box
 
@@ -347,23 +326,25 @@ grey_trans <- rgb(179, 179, 179, max = 255, alpha = 10)
 
 # identify most recent epiweek
 
- 
-
 end.epi.wk <- paste(epiyear(max(meta.df$Login.Date)), sprintf( "%02d", epiweek(max(meta.df$Login.Date))), sep = "-")
 
 ## create barplot of sequences, filtered to those with genome coverage >90%, epiweek login date in 2020
 
 meta.df$genome_completeness <- as.numeric(meta.df$genome_completeness)
 
-  ggplot(data=subset(meta.df, genome_completeness >= 0.9)) +
+subset_completeness <- subset(meta.df, genome_completeness >= 0.9)
+
+# get the highest weekly count for the scale
+weekly_max <- subset_completeness %>% group_by(epi.wk.login) %>% summarise(counts = n()) %>%
+  filter(counts == max(counts))
+
+ggplot(data=subset_completeness) +
 
                        #& epi.wk.login < '2021-01')) +
 
      geom_rect(aes(xmin = which(epiwk.list==end.epi.wk)-2.5,
 
                   xmax = which(epiwk.list==end.epi.wk)+0.5,
-
- 
 
                   ymin=-Inf,
 
@@ -444,10 +425,10 @@ meta.df$genome_completeness <- as.numeric(meta.df$genome_completeness)
     coord_capped_cart(left='both', bottom = 'both') +
 
         scale_x_discrete("Epidemiological Week") +
-
- 
-
-    scale_y_continuous("No. samples", expand = c(0,10))
+  # specify limits in y scale continuous instad of ylim to get better intervals
+    scale_y_continuous("No. samples", breaks = seq(0, round(max(weekly_max$counts), -2) + 2000, 100),
+                       limits = c(0, round(max(weekly_max$counts), -2) + 200))
+  
 ```
   
 ```{r, echo=F, message=F, warning=F, fig.width=13, include=FALSE}
