@@ -18,4 +18,7 @@ RUN apt-get update && apt-get install -y apt-utils && apt-get install -y git && 
     sudo apt-get update -y && \
     sudo apt-get upgrade -y && \
     sudo aptitude install -y npm && \
-    git clone https://github.com/matt-sd-watson/auspice.git && cd auspice && npm install && npm install --global .
+    git clone https://github.com/matt-sd-watson/auspice.git && cd auspice && npm install && npm install --global . && \
+    which auspice
+
+ENV PATH="/usr/local/bin/auspice:$PATH"
