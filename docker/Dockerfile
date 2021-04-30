@@ -22,3 +22,5 @@ RUN apt-get update && apt-get install -y apt-utils && apt-get install -y git && 
     which auspice
 
 ENV PATH="/usr/local/bin/auspice:$PATH"
+
+WORKDIR /app
