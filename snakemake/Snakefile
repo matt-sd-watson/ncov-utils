@@ -52,7 +52,7 @@ rule fastqc:
 		config["output"] + "fastqc/{id}_fastqc.zip"
 
 	shell: 
-		"fastqc {input} -o {config[input]}"
+		"fastqc {input} -o {config[input]}/fastqc/"
 
 # perform paired read alignment using bwa mem
 
