@@ -60,7 +60,7 @@ rule align:
 	input: 
 		read_1=config["output"] + "fastq/{read_id}_R1_001.fastq.gz",
 		read_2=config["output"] + "fastq/{read_id}_R2_001.fastq.gz",
-		ref=config["output"] + "/home/mwatson/COVID-19/reference/MN908947.fa"
+		ref=config["cov_ref]
 
 	output: 
 		config["output"] + "bam/{read_id}_aligned.sorted.bam"
@@ -103,7 +103,7 @@ rule index:
 rule trim: 
 	input: 
 		bam=config["output"] + "ivar/{clean_id}_aligned.sorted.merged.bam",
-		bed=config["output"] + "/home/mwatson/COVID-19/reference/nCoV-2019.primer.bed"
+		bed=config["ncov_primer_bed"]
 
 	output: 
 		config["output"] + "ivar/{clean_id}.primertrimmed.bam"	
@@ -141,7 +141,7 @@ rule consensus:
 
 rule variants: 
 	input: 
-		ref=config["output"] + "/home/mwatson/COVID-19/reference/MN908947.fa",
+		ref=config["cov_ref"],
 		bam=config["output"] + "ivar/{clean_id}.merged.sorted.bam"
 	output: 
 		config["output"] + "ivar/{clean_id}.variants.tsv"
