@@ -6,8 +6,8 @@ LABEL website="https://repo.coreontario.ca/COVID-19/nextstrain"
 LABEL maintainer="Public Health Ontario"
 
 ENTRYPOINT ["Building the Auspice phylogenetic viewer"]
-RUN apt-get update && \
+RUN apt-get update && brew instll node && \
     apt-get upgrade -y && \
     apt-get install -y git && \
-    git clone https://username:password@repo.coreontario.ca/COVID-19/nextstrain.git && cd nextstrain && npm install argparse && \
+    git clone https://github.com/matt-sd-watson/auspice && cd auspice && npm install argparse && \
 	npm install express && npm install && npm install --global . 
