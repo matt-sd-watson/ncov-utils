@@ -60,7 +60,7 @@ rule align:
 	input: 
 		read_1=config["output"] + "fastq/{read_id}_R1_001.fastq.gz",
 		read_2=config["output"] + "fastq/{read_id}_R2_001.fastq.gz",
-		ref=config["cov_ref]
+		ref=config["cov_ref"]
 
 	output: 
 		config["output"] + "bam/{read_id}_aligned.sorted.bam"
