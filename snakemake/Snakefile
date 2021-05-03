@@ -7,14 +7,14 @@
 # will ignore all other files of different extension
 # NOTE: for glob_wildscards, ALWAYS need to put a comma after the variable for proper separation
 
-ids, = glob_wildcards(config["input"] +  "fastq/{id}.fastq.gz")
+ids, = glob_wildcards(config["input"] +  "{id}.fastq.gz")
 
 # specify different wildcard for separating read 1 and 2 for paired read alignment
-unique_id, = glob_wildcards(config["input"] + "fastq/{read_id}_R1_001.fastq.gz")
+unique_id, = glob_wildcards(config["input"] + "{read_id}_R1_001.fastq.gz")
 
 # identify the unique sample id separate from the lane and read id that will be used for ivar
 
-clean_ids, = glob_wildcards(config["input"] + "fastq/{clean_id}_L001_R1_001.fastq.gz")
+clean_ids, = glob_wildcards(config["input"] + "{clean_id}_L001_R1_001.fastq.gz")
 
 
 # can specify the output directory for certain command line utilities
@@ -45,14 +45,14 @@ rule all:
 
 rule fastqc: 
 	input: 
-		config["input"] + "fastq/{id}.fastq.gz"
+		config["input"] + "{id}.fastq.gz"
 
 	output: 
 		config["output"] + "fastqc/{id}_fastqc.html",
 		config["output"] + "fastqc/{id}_fastqc.zip"
 
 	shell: 
-		"fastqc {input} -o {config[input]}/fastqc/"
+		"fastqc {input} -o {config[output]}/fastqc/"
 
 # perform paired read alignment using bwa mem
 
