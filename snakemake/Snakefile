@@ -7,7 +7,7 @@
 # will ignore all other files of different extension
 # NOTE: for glob_wildscards, ALWAYS need to put a comma after the variable for proper separation
 
-ids, = glob_wildcards(config["input"] +  "{id}.fastq.gz")
+ids, = glob_wildcards(config["input"] + "{id}.fastq.gz")
 
 # specify different wildcard for separating read 1 and 2 for paired read alignment
 unique_id, = glob_wildcards(config["input"] + "{read_id}_R1_001.fastq.gz")
@@ -58,8 +58,8 @@ rule fastqc:
 
 rule align: 
 	input: 
-		read_1=config["output"] + "fastq/{read_id}_R1_001.fastq.gz",
-		read_2=config["output"] + "fastq/{read_id}_R2_001.fastq.gz",
+		read_1=config["input"] + "{read_id}_R1_001.fastq.gz",
+		read_2=config["input"] + "{read_id}_R2_001.fastq.gz",
 		ref=config["cov_ref"]
 
 	output: 
@@ -77,7 +77,7 @@ rule merge:
 		l3=config["output"] + "bam/{clean_id}_L003_aligned.sorted.bam",
 		l4=config["output"] + "bam/{clean_id}_L004_aligned.sorted.bam"
 
-	output: "ivar/{clean_id}_aligned.sorted.merged.bam"
+	output: CONFIG["OUTPUT"] + "ivar/{clean_id}_aligned.sorted.merged.bam"
 
 	shell: 
 		"samtools merge {output} {input.l1} {input.l2} {input.l3} {input.l4}"
