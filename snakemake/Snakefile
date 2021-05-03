@@ -77,7 +77,7 @@ rule merge:
 		l3=config["output"] + "bam/{clean_id}_L003_aligned.sorted.bam",
 		l4=config["output"] + "bam/{clean_id}_L004_aligned.sorted.bam"
 
-	output: CONFIG["OUTPUT"] + "ivar/{clean_id}_aligned.sorted.merged.bam"
+	output: config["output"] + "ivar/{clean_id}_aligned.sorted.merged.bam"
 
 	shell: 
 		"samtools merge {output} {input.l1} {input.l2} {input.l3} {input.l4}"
@@ -112,7 +112,7 @@ rule trim:
 		sam="{clean_id}"
 
 	shell: 
-		"ivar trim -i {input.bam} -b {input.bed} -p ivar/{params.sam}.primertrimmed -q 15 -m 20"
+		"ivar trim -i {input.bam} -b {input.bed} -p {config[output]}/ivar/{params.sam}.primertrimmed -q 15 -m 20"
 
 # generate a consensus fasta from the trimmed bam file
 # switch the consensus input to the non-trimmed bam for experimentation
@@ -137,7 +137,7 @@ rule consensus:
 	params: 
 		fa="{clean_id}"
 	shell: 
-		"samtools mpileup -d 0 -aa -A -Q 0 {input} | ivar consensus -p ivar/{params.fa}.consensus -q 20 -t 0.75"
+		"samtools mpileup -d 0 -aa -A -Q 0 {input} | ivar consensus -p {config[output]}/ivar/{params.fa}.consensus -q 20 -t 0.75"
 
 rule variants: 
 	input: 
@@ -148,5 +148,5 @@ rule variants:
 	params: 
 		id="{clean_id}"
 	shell: 
-		"samtools mpileup -aa -A -d 600000 -B -Q 0 {input.bam} | ivar variants -p ivar/{params.id}.variants -q 20 -t 0.03 -r {input.ref}"
+		"samtools mpileup -aa -A -d 600000 -B -Q 0 {input.bam} | ivar variants -p {config[output]}/ivar/{params.id}.variants -q 20 -t 0.03 -r {input.ref}"
 
