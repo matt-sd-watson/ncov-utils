@@ -1,6 +1,5 @@
 # specify config.yaml file for input and output directories
-
-configfile: "config.yaml"
+# at CLI execution, the YAML location will be specified using --configfile 
 
 # get the list of unique sample ids from the sam file directory
 # glob wildcards will find the portion of all the filename in the directory based on the pattern below and save them to a tuple
