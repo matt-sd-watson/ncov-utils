@@ -1,5 +1,5 @@
 # specify config yaml for input and output directories
-configfile: "config.yaml"
+# at CLL execution, the path to the YAML file is provided by --configfile
 
 # get the list of unique sample ids from the sam file directory
 # glob wildcards will find the portion of all the filename in the directory based on the pattern below and save them to a tuple
