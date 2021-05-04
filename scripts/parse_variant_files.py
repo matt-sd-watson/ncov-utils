@@ -16,14 +16,20 @@ for x in glob.glob(var_dir + "*/*callVariants/"):
     for path in Path(x).rglob('*variants.tsv'):
         var_frame = pd.read_csv(os.path.abspath(path), sep='\t')
         vars_list = []
-        # ensure the vars frame is not empty and that the WGS Id is uniquw
+        # ensure the vars frame is not empty and that the WGS Id is unique
         if 'ALT_DP' in var_frame and len(var_frame.index) != 0 and os.path.basename(path).split(".")[0].split("_S")[0] \
                 not in var_dict:
             processed += 1
-            print(os.path.basename(path).split(".")[0].split("_S")[0] + " " + "(" + str(processed) + ")")
+            print("Processing: " + os.path.basename(path).split(".")[0].split("_S")[0] + " " + "(" + str(processed) +
+                  ")")
             for index, row in var_frame.iterrows():
                 if row["ALT_DP"] >= 10:
-                    vars_list.append(str(row["REF"]) + str(row["POS"]) + str(row["ALT"]))
+                    if "-" in row["ALT"]:
+                        vars_list.append("del:" + str(row["REF"]) + str(row["POS"]) + str(row["ALT"]))
+                    elif "+" in row["ALT"]:
+                        vars_list.append("ins:" + str(row["REF"]) + str(row["POS"]) + str(row["ALT"]))
+                    else:
+                        vars_list.append(str(row["REF"]) + str(row["POS"]) + str(row["ALT"]))
             var_dict[os.path.basename(path).split(".")[0].split("_S")[0]] = ",".join(vars_list)
 
 vars_data_frame = pd.DataFrame(var_dict.items(), columns=["sample", "variants"])
