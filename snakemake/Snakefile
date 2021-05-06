@@ -1,5 +1,5 @@
 # specify config yaml for input and output directories
-# at CLL execution, the path to the YAML file is provided by --configfile
+# at CLI execution, the path to the YAML file is provided by --configfile
 
 # get the list of unique sample ids from the sam file directory
 # glob wildcards will find the portion of all the filename in the directory based on the pattern below and save them to a tuple
@@ -67,20 +67,31 @@ rule align:
 	shell: 
 		"bwa mem -t 4 {input.ref} {input.read_1} {input.read_2} | samtools sort | samtools view -S -b > {output}"
 
-# merge the unique samples from all lanes into one, theinput requires a specific line for each lane to merge based on unique sample id
-# specify new output directory ivar for ivar outputs
+# merge the unique samples from all lanes into one, the input requires a specific line for each lane to merge based on unique sample id
 
-rule merge: 
-	input: 
-		l1=config["output"] + "bam/{clean_id}_L001_aligned.sorted.bam",
-		l2=config["output"] + "bam/{clean_id}_L002_aligned.sorted.bam",
-		l3=config["output"] + "bam/{clean_id}_L003_aligned.sorted.bam",
-		l4=config["output"] + "bam/{clean_id}_L004_aligned.sorted.bam"
+if config["instrument"] == "NextSeq":
+	rule merge_nextseq:
+		input:
+			l1=config["output"] + "bam/{clean_id}_L001_aligned.sorted.bam",
+			l2=config["output"] + "bam/{clean_id}_L002_aligned.sorted.bam",
+			l3=config["output"] + "bam/{clean_id}_L003_aligned.sorted.bam",
+			l4=config["output"] + "bam/{clean_id}_L004_aligned.sorted.bam"
 
-	output: config["output"] + "ivar/{clean_id}_aligned.sorted.merged.bam"
+		output: 
+			config["output"] + "ivar/{clean_id}_aligned.sorted.merged.bam"
 
-	shell: 
-		"samtools merge {output} {input.l1} {input.l2} {input.l3} {input.l4}"
+		shell: 
+			"samtools merge {output} {input.l1} {input.l2} {input.l3} {input.l4}"
+
+if config["instrument"] == "MiSeq":
+	rule merge_miseq:
+		input:
+			l1=config["output"] + "bam/{clean_id}_L001_aligned.sorted.bam"
+		output: 
+			config["output"] + "ivar/{clean_id}_aligned.sorted.merged.bam"
+
+		shell: 
+			"cp {input.l1} {output}"
 
 # index the sorted bam file
 
@@ -126,7 +137,6 @@ rule sort_trim:
 
 	shell: 
 		"samtools sort {input} > {output}"
-
 
 rule consensus: 
 	input: 
