@@ -2,6 +2,9 @@ import pandas as pd
 from Bio import SeqIO
 import argparse
 import numpy as np
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 def get_grouping(data_frame):
