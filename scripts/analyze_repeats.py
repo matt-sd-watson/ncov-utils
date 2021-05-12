@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 
 
 def get_grouping(data_frame):
-    data_frame['standard_name'] = data_frame['sample_name'].map(lambda x: x.rstrip('-v2|-v3|-v4|-v5|-v6'))
+    data_frame['standard_name'] = data_frame['sample_name'].map(lambda x: x.split('-v', 1)[0])
     min_frame = data_frame.loc[data_frame.groupby('standard_name').N_counts.idxmin()][["sample_name", "N_counts"]]
     return data_frame, min_frame
 
