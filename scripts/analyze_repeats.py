@@ -22,6 +22,8 @@ def main():
                     required=True)
     parser.add_argument('--fasta_mixed', '-m', type=str, help='Multi-fasta without exclusively ACGT to count mixed positions',
                     required=True)
+    parser.add_argument('--metadata', '-d', type=str, help='Optional metadata frame with additional sample information',
+                        required=False)
 
     args = parser.parse_args()
 
@@ -57,9 +59,6 @@ def main():
     n_counts_frame = pd.DataFrame(sam_n_counts)
     non_identical.sort()
 
-    if n_counts_frame.shape[0] != 0:
-        n_counts_frame.sort_values(by=['sample_name'], ascending=True).to_csv("identical_sequences.csv", index=False)
-
     if len(non_identical) != 0:
         with open("Non-identical sequences.txt", "w") as handle:
             for lines in non_identical:
@@ -79,7 +78,8 @@ def main():
         print("None")
 
     fasta_mixed = SeqIO.parse(open(args.fasta_mixed), 'fasta')
-    nuc = ['A', 'T', 'C', 'G', 'N', '-'] #prevent deletions from being included with -
+    # prevent deletions from being included with -
+    nuc = ['A', 'T', 'C', 'G', 'N', '-']
     mixed_post = []
     pos = {}
     for record in fasta_mixed:
@@ -105,8 +105,12 @@ def main():
         final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left'). \
             merge(stripped_frame, on='sample_name', how='left').drop(['standard_name'], axis=1)
         final_frame['exclude_analysis'] = np.where(final_frame['sample_name'].isin(grouped_min_frame['sample_name']),
-                                                   "N", "Y")
-        if mixed_counts.shape[0] != 0:
+                                                "N", "Y")
+        if args.metadata is not None:
+            with_metadata = pd.merge(pd.read_csv(args.metadata), final_frame, how='inner', left_on='WGS_Id',
+                                         right_on='sample_name').drop(['sample_name'], axis=1)
+            with_metadata.sort_values(by=['WGS_Id']).to_csv("identical_sequences_w_metadata.csv", index=False)
+        if args.metadata is None:
             final_frame.sort_values(by=['sample_name']).to_csv("identical_sequences.csv", index=False)
 
 
