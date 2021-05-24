@@ -79,7 +79,7 @@ def main():
         print("None")
 
     fasta_mixed = SeqIO.parse(open(args.fasta_mixed), 'fasta')
-    nuc = ['A', 'T', 'C', 'G', 'N']
+    nuc = ['A', 'T', 'C', 'G', 'N', '-'] #prevent deletions from being included with -
     mixed_post = []
     pos = {}
     for record in fasta_mixed:
