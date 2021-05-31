@@ -36,7 +36,7 @@ def main():
         vars_frame = vars_frame.drop(['INFO', 'FORMAT', 'unknown'], axis=1)
 
         # add column in the first position for sample name
-        vars_frame.insert(0, column="sample", value=os.path.basename(i).split("_S")[0])
+        vars_frame.insert(0, column="WGS_Id", value=os.path.basename(i).split("_S")[0])
         # establish a list of extra columns to add
         columns_to_add = ['DP', 'DPB', 'RO', 'AO', 'PRO', 'PAO']
 
