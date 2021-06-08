@@ -2,7 +2,6 @@
 title: "SARS-CoV-2 Genomics"
 subtitle: "Internal Report" 
 date: "Updated:  `r format(Sys.time(), '%B %d, %Y')`<div style=\"height: 40px;\"></div>"
-#date: "Updated:  `r format(Sys.time(), '%B %d, %Y')`<div style=\"height: 40px;\"></div>"
 # "Period: `r format(Sys.time() - 7*24*3600, '%B %d, %Y')` to `r format(Sys.time(), '%B %d, %Y')`"
 mainfont: Arial
 fontsize: 11
@@ -51,6 +50,10 @@ h2 { /* Header 2 */
     font-size: 14pt;
   color: #4A4A4A;
 }
+h3 { /* Header 2 */
+    font-size: 12pt;
+  color: #616161;
+}
 body { /* Normal */
     font-size: 12pt;
     font-family: "Arial"; 
@@ -81,12 +84,16 @@ a {
 </style>
 
 
-
-```{r logo, echo=FALSE, out.width = "100px"}
+```{r logo, echo=FALSE, out.width = "10%"}
 htmltools::img(src = knitr::image_uri(file.path("./2_Input/PHO_Signature_en.svg")),
+#htmltools::img(src = knitr::image_uri(file.path("./2_Input/PHO_Signature.png")),               
               alt = 'logo',
               style = 'position:absolute; top:20px; left:15px; padding:5px;')
 ```
+
+
+\
+\
  
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -97,10 +104,10 @@ library(ggrepel)
 library(lubridate)
 library(viridis)
 library(gridExtra)
-library(wesanderson)
+# library(wesanderson)
 library(RColorBrewer)
 library(directlabels)
-library(argparse)
+# library(argparse)
 library(ggpubr)
 library(gridExtra)
 library(waffle)
@@ -120,7 +127,7 @@ library(lemon)
 library(treemapify)
 library(colorspace)  # install via: install.packages("colorspace", repos = "http://R-Forge.R-project.org")
 library(scales)
-library(ggtree)
+# library(ggtree)
 library(ape)
 library(DT)
 library(htmlwidgets)
@@ -131,11 +138,9 @@ library(grid)
 library(lemon)
 
 ```
-\
 
 _________________
 
-\
 
 # Background
 
@@ -143,14 +148,31 @@ _________________
 
 <p>PHO Laboratory performs whole genome sequencing (WGS) on a selection of SARS-CoV-2 samples submitted for primary diagnostic testing or specific PCR testing for Variants of Concern (VOC). Therefore, it is important to note that the numbers reported here do not represent all SARS-CoV-2 in Ontario. Furthermore, there is currently a bias towards sequencing of samples for which mutations present in VOCs have been detected.</p>
 
-```{r VOC and VOI lists, include = FALSE}
+```{r VOC, VOI and mutations lists, include = FALSE}
 
 # ---->>>> List of VOCs <<<<----
-voc.list <- c("B.1.1.7", "B.1.351", "P.1", "B.1.617", "B.1.617.1", "B.1.617.2", "B.1.617.3")  # Add B.1.1.7 with E484K ?
+voc.list <- c("B.1.1.7", "B.1.351", "P.1", "B.1.617.2")  # Add B.1.1.7 with E484K ?
 
 # ---->>>> List of VOIs <<<<----
-voi.list <- c("P.2", "P.3", "A.23.1 with E484K", "B.1.2 with E484K",
-              "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.525", "B.1.526", "B.1.526.1")
+voi.list <- c("P.2", "P.3", "A.23.1", "A.23.1 with E484K", "B.1.2 with E484K",
+              "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.525", "B.1.526", "B.1.526.1", 
+              "B.1.526.2", "B.1.526.3",  "B.1.617.1")
+
+
+# ---->>>> List of N501Y <<<<----
+n501y.lin.list <- c("P.1.2", "XA", "P.3", " A.27", "B.1.1.7", 
+                    "AP.1", "P.1", "P.1.1", "B.1.623", "B.1.621", "B.1.351.3", 
+                    "B.1.351", "B.1.351.2", "B.1.604", "B.1.1.136")
+
+# ---->>>> List of E484K <<<<----
+e484k.lin.list <- c("A.23.1 with E484K", "B.1.2 with E484K", "B.1.1.7 with E484K",
+                    "P.1.2", "P.3" , "N.10", "B.1.1.345","R.1","P.2" , "AV.1",
+                    "B.1.618", "B.1.177.88", "R.2", "B.1.1.318", "B.1.525",
+                    "B.1.619", "P.1.1" ,"P.1", "N.9", "B.1.1.523", "B.1.620",
+                    "B.1.621", "B.1.351.3", "B.1.351","B.1.351.2","B.1.526" ,"AT.1", "B.1.243.1")
+                    
+# ---->>>> List of E484Q <<<<----
+e484q.lin.list <- c("B.1.617", "B.1.617.1", "B.1.617.3")
 
 ```
 
@@ -183,8 +205,8 @@ meta.df.1 <- meta.df %>%
                                      ifelse(lineage_all == "B.1.1.7" & E484K == "Detected", "B.1.1.7 with E484K",
                              	       ifelse(lineage_all == "A.23.1" & E484K == "Detected", 
                              	             "A.23.1 with E484K", lineage_all)))) %>%
-                mutate(lineage.all.cat = ifelse(lineage.all %in% voc.list, "VoC",
-                                         ifelse(lineage.all %in% voi.list, "VoI", "Other"))) %>%
+                mutate(lineage.all.cat = ifelse(lineage.all %in% voc.list, "VOC",
+                                         ifelse(lineage.all %in% voi.list, "VOI", "Other"))) %>%
                 mutate(lin.parent.grp = gsub("\\..*","",lineage.all)) %>%
   
                 mutate(upload.date.lineage.plate = 
@@ -284,7 +306,7 @@ for (i in unique(merged$lineage.all)) {
 
 # Change from last reported (assume reporting every Wednesday)
 time.cat.table <- meta.df.2 %>%
-                    mutate(time.cat.new = ifelse(!is.na(Processed_results_date) &
+                   dplyr:: mutate(time.cat.new = ifelse(!is.na(Processed_results_date) &
                                              (Processed_results_date >= prev.epiwk$d0 & 
                                               Processed_results_date <= prev.epiwk$d1), 
                                              "Change in genomes",  "Old")) %>%
@@ -343,8 +365,8 @@ n.lin.grp <- meta.df.2021 %>%
               ungroup()
 
 
-# Use 9 palettes from the colorspace package, one for each parent lineage  #### Need to think aobut this in case more parent lineages than 9
-palette <- c( "Purp", "Greens", "Purples", "Mint", "Teal", "PinkYl","PuRd","Burg", "RedOr")
+# Use 9 palettes from the colorspace package, one for each parent lineage  #### Need to think about this in case more parent lineages than 9
+palette <- c( "Purp",  "Greens", "Purples","Viridis", "Mint", "Teal", "PinkYl","PuRd","Burg", "RedOr")
 
 n.lin.grp.cols <- n.lin.grp %>% 
                     distinct(lin.parent.grp) %>%
@@ -367,6 +389,7 @@ pl.lin <- ggplot(meta.df.2021.col, aes(area = n, label = lineage.all,
             geom_treemap_text(colour = "white", place = "topleft", reflow = T, min.size = 5) +
             theme(legend.position="none") + 
             scale_fill_identity()
+
 
 # Lineage statistics for table
 n.lin.grp <- meta.df.2021 %>% 
@@ -409,10 +432,16 @@ ggplot(data.frame(Total = c("A", "A", "A"), Recent = c(0, 1, 2)),
   annotate(geom="text", x=0, y=1, label=time.cat.table$`Change in genomes`,
            color="#4B8184", size = 12, fontface = 'bold') +
   
+  annotate(geom="text", x=0, y=0.65, label="Since last report",
+           color="#4B8184", size = 4) +
+  
   annotate(geom="text", x=1, y=1.25, label="Recent genomes",
            color="#4B8184", size = 6) +
   annotate(geom="text", x=1, y=1, label=time.cat.table.3wks$`Recent genomes`,
            color="#4B8184", size = 12, fontface = 'bold') +
+  
+    annotate(geom="text", x=1, y=0.65, label="Previous 3 weeks",
+           color="#4B8184", size = 4) +
   
   annotate(geom="text", x=2, y=1.25, label="Total genomes",
            color="#4B8184", size = 6) +
@@ -492,14 +521,15 @@ y.labs.scale <- y.labs %>%
 
 ## create barplot of sequences, filtered to those with genome coverage >90%, epiweek login date in 2020 # Need to change this not include the completeness and just use database reported/processed
 meta.df.all.wks %>% ggplot() +
-                       geom_rect(aes(xmin = which(epiwk.list.all==end.epi.wk)-8.5,
+                       geom_rect(aes(xmin = which(epiwk.list.all==end.epi.wk)-6.5,
                        xmax = which(epiwk.list.all==end.epi.wk)+0.5,
                        ymin=-Inf, ymax=Inf),
                        fill="grey90") + 
-                       annotate("text", x = which(epiwk.list.all==end.epi.wk)-8.45, 
-                                        y = Inf, 
-                                        label = "Subject to \nsequencing lag",
-                                        size = 5, vjust = 1.2, hjust = -.03, color = "black") +
+                       ggtitle("Subject to \nsequencing lag") +
+                       # annotate("text", x = which(epiwk.list.all==end.epi.wk)-8.45, 
+                       #                  y = Inf, 
+                       #                  label = "Subject to \nsequencing lag",
+                       #                  size = 5, vjust = 1.2, hjust = -.03, color = "black") +
                       theme(plot.tag.position = c(0.96, 0.9)) +
                       geom_bar(aes(x=epi.wk.login)) +
                       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5),
@@ -507,6 +537,7 @@ meta.df.all.wks %>% ggplot() +
                             axis.title.x = element_text(size = 16, 
                                                         margin = margin(t = 20, r = 0, b = 0, l = 0)),
                             axis.title.y = element_text(size = 16),
+                            plot.title = element_text(size = 14, hjust = 1),
                             plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
                             panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                             panel.background = element_blank(), axis.line = element_line(colour = "black"),
@@ -541,40 +572,53 @@ As part of PHO’s bioinformatic processing, all genomic sequences are routinely
 
 
 ## Number of Pango Lineages by Year
-```{r, fig.width = 5.33, fig.height = 2.25, echo=F, warning=F, message=F, fig.keep = 'last'}
+\
+
+```{r, fig.width = 5.25, fig.height = 2.25, echo=F, warning=F, message=F, fig.keep = 'last'}
 
 ggplot(data.frame(Total = c("A", "A"), Recent = c(0, 1)),
        aes(y = Total, x = Recent)) +
   geom_tile(color = "white", fill = "#F7F7F7", size = 5) +  
-  annotate(geom="text", x=0, y=1.25, label="Unique Lineages, 2020",
-           color="#4B8184", size = 5.5) +
+  annotate(geom="text", x=0, y=1.25, label="Unique Lineages",
+           color="#4B8184", size = 6) +
   annotate(geom="text", x=0, y=1, label=num.lineages.yr$`2020`,
            color="#4B8184", size = 12, fontface = 'bold') +
-  annotate(geom="text", x=1, y=1.25, label="Unique Lineages, 2021",
-           color="#4B8184", size = 5.5) +
+  
+  annotate(geom="text", x=0, y=0.65, label="Year, 2020",
+           color="#4B8184", size = 4) +
+  
+  annotate(geom="text", x=1, y=1.25, label="Unique Lineages",
+           color="#4B8184", size = 6) +
   annotate(geom="text", x=1, y=1, label=num.lineages.yr$`2021`,
            color="#4B8184", size = 12, fontface = 'bold') +
+  annotate(geom="text", x=1, y=0.65, label="Year, 2021",
+           color="#4B8184", size = 4) +
   theme_void() +
   scale_x_continuous(expand = c(0,0)) + 
   scale_y_discrete(expand = c(0,0)) 
 ```
 
+\
+\
 
-\
-\
+<br>
 
 ## Visualization of Pango Lineage Frequencies
 
 Pango lineages from sequenced samples (January 1, 2021 - `r prev.epiwk.end.txt`). The plot is divided into tiles, each of which represents a single lineage. The relative area of each tile represents the number of sequenced genomes assigned to each lineage.
-
+\
+\
+\
 ```{r, echo=FALSE, fig.height=7, fig.width=8}
 pl.lin
 ```
 \
 \
 \
+```{rm include = F}
+#placeholder
+```
 
-<br>
 
 ## Table of Pango Lineage Frequencies, January 1, 2021 - `r prev.epiwk.end.txt`
 
@@ -603,113 +647,66 @@ lin.changes.since.last <- meta.df.2 %>%
                             mutate(tot.lin = sum(n.grp)) %>%
                             spread(time.cat.new, n.grp, fill = 0) %>%
                             mutate(rel.freq = format(round(100*(tot.lin/tot)), nsmall = 2, trim = TRUE)) %>%
-                           # mutate(n.rel.freq = paste0(tot.lin, " (", rel.freq, ")", sep = "")) %>%  
                             mutate(perc.chng.num = round(100*(New/(New+Old)))) %>%
                             mutate(perc.chng = format(round(100*(New/(New+Old))), nsmall = 2, trim = TRUE)) %>%
-                           # mutate(n.perc.chng = paste0(New, " (", perc.chng, ")", sep = "")) %>%
-                            mutate(Category = ifelse(lineage.all %in% voc.list, "VoC", 
-                                              ifelse(lineage.all %in% voi.list, "VoI", ""))) %>%
+                            mutate(Category = ifelse(lineage.all %in% voc.list, "VOC", 
+                                              ifelse(lineage.all %in% voi.list, "VOI", ""))) %>%
                             mutate(rank.ord = ifelse(New >= 10, 1, 0)) %>%
                             arrange(desc(rank.ord), desc(perc.chng.num)) %>%
-                            dplyr::select(Category, Lineage = lineage.all, tot.lin, rel.freq,
+                            mutate(`N501Y*` = ifelse(lineage.all %in% n501y.lin.list, "&#10003;", ""),
+                                   `E484K*` = ifelse(lineage.all %in% e484k.lin.list, "&#10003;", "")) %>%
+                            dplyr::select(Category, Lineage = lineage.all, `N501Y*`, `E484K*`,  tot.lin, rel.freq,
                                    New, perc.chng)
 
 
-
-# datatable(as.data.frame(lineage_info), #extensions = 'Buttons',
-#           options = list(pageLength = 10, #dom = 'Bfrtip', #buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
-#                    columnDefs = list(list(className = 'dt-left', targets = 1:3),
-#                                      list(className = 'dt-center', targets = 4)),
-#                    autowidth = TRUE,initComplete = JS(
-
+# Create a container
 sketch = htmltools::withTags(table(
   class = 'display',
   thead(
     tr(
       th(rowspan = 2, 'Category'),
       th(rowspan = 2, 'Lineage'),
-      th(colspan = 2, 'Total Genomes', style = "border-right: solid 6px #595959;
-                                                border-bottom: solid 1px white;"),
-      th(colspan = 2, 'Change in Genomes*', style = "border-left: solid 6px #595959;
-                                                    border-bottom: solid 1px white;")
+      th(rowspan = 2, 'N501Y*'),
+      th(rowspan = 2, 'E484K*'),
+      th(colspan = 2, 'Total Genomes', style = "border-right: solid 6px #595959; margin-right: 20px; 
+                                                border-bottom: solid 1px white; width: 25%;"),
+      th(colspan = 2, 'Change in Genomes (since last report)', style = "border-left: solid 6px #595959;
+                                                                        border-bottom: solid 1px white; width: 25%;")
     ),
     tr(lapply(rep(c('N', '%'), 2), th)
     )
   )
 ))
+#style = list(marginLeft = "20px")
+#background: green;
 
- datatable(lin.changes.since.last,
+# Generate table
+datatable(lin.changes.since.last,
            container = sketch, 
            rownames = FALSE,
-          # caption = 'Table 1: This is a simple caption for the table.',
-           class="compact",
+           escape=FALSE,
+          caption = htmltools::tags$caption(
+              style = 'caption-side: bottom; text-align: left; font-size: 13px;', 
+              htmltools::em("*Check indicates that \U2265 80% of publicly available genomes for a given lineage contain the mutation (Data Source: https://outbreak.info)", html_escape = FALSE)
+            ),
+          class="compact",
+          width = 800, 
             options = list(pageLength = 10,
                     columnDefs = list(
-                                      list(className = 'dt-center',  targets = 0),
-                                      list(className = 'dt-left',  targets = 1),
-                                       list(className = 'dt-center',  targets = 2:4),
-                                      list(className = 'dt-center',  targets = 5)),
-                     autowidth = TRUE, initComplete = JS(
+                                      list(className = 'dt-center', targets = 0),
+                                      list(className = 'dt-left', targets = 1),
+                                      list(className = 'dt-center', targets = 2:7)),
+                    initComplete = JS(
                               "function(settings, json) {",
                               "$(this.api().table().header()).css({'color': 'white'});",
                               "}"))) #%>% 
  # formatStyle(c(1,3), `border-right` = "solid 2px red")
 
 
-
-```
-*Since last report
-
-\
-
-
-```{r, echo=FALSE}
-
-#reactable(lin.changes.since.last)
-# 
-# reactable(
-#   lin.changes.since.last,
-#   searchable = TRUE,
-#   showSortable = TRUE,
-#  # striped = TRUE,
-#   highlight = TRUE,
-#   fullWidth = FALSE,
-# 
-#   columns = list(
-#     Category = colDef(name = "Category", align = "center", minWidth = 125),
-#     lineage.all = colDef(name = "Lineage", minWidth = 125),
-#     tot.lin = colDef(name = "N", minWidth = 100),
-#     rel.freq = colDef(name = "%", align = "right", minWidth = 100),
-#     New = colDef(name = "N", minWidth = 100),
-#     perc.chng = colDef(name = "%", align = "right", minWidth = 100) 
-#   ),
-#  #header = list(lineage.all),
-#  defaultColGroup = colGroup(headerStyle = list(borderTop = "1.5px solid #595959")),
-#  defaultColDef = colDef(headerStyle = list(borderTop = "1.5px solid #595959", 
-#                                            borderBottom = "1.5px solid #595959")),
-#  theme = reactableTheme(
-#     borderColor = "#dfe2e5",
-#     stripedColor = "#f6f8fa",
-#     highlightColor = "#f0f5f9",
-#     cellPadding = "8px 12px"
-#   #  headerStyle = list(borderColor = "black"),
-#     ),  
-#  # cellPadding = "8px 12px"
-#   # defaultColDef = colDef(headerStyle = list(background = "#595959")
-#   # ),  style = list(borderTop = "1px solid #eee"),
-#  
-#    columnGroups = list(
-#     colGroup(name = "Total Genomes", columns = c("tot.lin", "rel.freq")),
-#     colGroup(name = "", columns = c("Category", "lineage.all")),
-#     colGroup(name = "Change in Genomes", columns = c("New", "perc.chng")))) # headerStyle = list(background = "#595959"
-# #) 
-
-
 ```
 
 \
-
-<br>
+\
 
 
 ## Lineage Categories by Epidemiological Week 
@@ -727,13 +724,11 @@ meta.df.all.wks %>%
         group_by(epi.wk.login, lineage.all.cat) %>%
         dplyr::summarise(n = n()) %>%
           ggplot(aes(x = epi.wk.login, y = n, fill = lineage.all.cat)) +
-             geom_rect(aes(xmin = which(epiwk.list.all==end.epi.wk)-8.5,
+             geom_rect(aes(xmin = which(epiwk.list.all==end.epi.wk)-6.5,
                                  xmax = which(epiwk.list.all==end.epi.wk)+0.5,
                                  ymin=-Inf, ymax=Inf),
                                  fill="grey90") + 
-                                 annotate("text", x = which(epiwk.list.all==end.epi.wk)-8.45, y = Inf, 
-                                                  label = "Subject to \nsequencing lag",
-                                                  size = 5, vjust = 1.2, hjust = -.03, color = "black") +
+              ggtitle("Subject to \nsequencing lag") +
               geom_bar(stat = "identity") +
                   theme(panel.grid.major = element_blank(),
                         panel.grid.minor = element_blank(),
@@ -747,18 +742,18 @@ meta.df.all.wks %>%
                         legend.box.margin = margin(0.05,0.05,0.05,0.05,"cm"),
                         legend.box.background = element_rect(colour = "black"),
                         legend.spacing.y = unit(0.3, "cm"),
-                        
                         legend.key.width = unit(0.6, "cm"),
                         legend.key.height = unit(0.3, "cm"),
+                        plot.title = element_text(size = 14, hjust = 1),
                         axis.text.y = element_text(size = 17),
                         axis.text.x = element_text(size = 17, angle = 90, hjust = 1, vjust = 0.5),
                         axis.title.y = element_text(size = 19),
                         axis.title.x = element_text(size = 19, margin = margin(t = 20, r = 0, b = 0, l = 0)),
                         legend.spacing.x = unit(0.3, 'cm')) +
                 scale_fill_manual("Lineage Category",
-                                values = c("VoC" = "#4B91A5", "VoI" = "#D4999A",
+                                values = c("VOC" = "#4B91A5", "VOI" = "#D4999A",
                                            "Other" = "#621C4E", "None" = "#B7B7B7"), 
-                                breaks = c("VoC", "VoI", "Other", "None")) +
+                                breaks = c("VOC", "VOI", "Other", "None")) +
                 scale_y_continuous("Number of genomes", expand = c(0,10), 
                                     limits = c(0, max(y.labs.scale)),     
                                     breaks = y.labs.scale, labels = y.labs.scale) +
@@ -768,15 +763,15 @@ meta.df.all.wks %>%
 ```
 \
 \
+\
 
 ***
 
-\
 
-# Variants of Concern (VoC)
+# Variants of Concern (VOC)
 
-Cumulative counts of genome sequences for each lineage designated as a VoC (January 1, 2021 - `r prev.epiwk.end.txt`).\
-A list of the current Pango lineages classified as a VoC can be found in the [Technical Notes](#technical-notes). 
+Cumulative counts of genome sequences for each lineage designated as a VOC (January 1, 2021 - `r prev.epiwk.end.txt`).\
+A list of the current Pango lineages classified as a VOC can be found in the [Technical Notes](#technical-notes). 
 
 <p> </p>
 
@@ -1107,7 +1102,7 @@ plot.voc.B16172 <- rolling.cases %>%
 plot.voc.B117
 plot.voc.B1351
 plot.voc.P1
-plot.voc.B16171
+# plot.voc.B16171
 plot.voc.B16172
 ```
 \
@@ -1119,18 +1114,61 @@ plot.voc.B16172
 <br> 
 
 
-## VOC Relative Frequency by Public Health Unit
+## VOC Relative Frequency by Public Health Unit {.tabset}
 
+```{r, include = F}
+# placeholder
+```
 \
 \
 
-```{r pressure, echo=FALSE, fig.width=8.5}
+
+### B.1.1.7
+```{r pie charts b117, echo=FALSE, fig.width=8.5}
+
 pie_chart_B.1.1.7
+
+
+```
+
+<br> 
+<br> 
+
+### B.1.351
+```{r pie charts b1351, echo=FALSE, fig.width=8.5}
+
 pie_chart_B.1.351
+
+
+```
+
+<br> 
+<br> 
+
+
+### P.1
+
+```{r pie charts p1, echo=FALSE, fig.width=8.5}
+
 pie_chart_P.1
-pie_chart_B.1.617.1
+
+
+```
+
+<br> 
+<br> 
+
+
+### B.1.617.1
+
+```{r pie charts b16172, echo=FALSE, fig.width=8.5}
+
 pie_chart_B.1.617.2
 
+```
+
+```{r, include = F}
+# placeholder
 ```
 
 
@@ -1246,7 +1284,7 @@ plot_voc_no_b117 <- ggplot(mut_lin_date_grouped_final_voc, aes(x = date, y = cum
                                       aes(label = paste(lineage, paste("(", cumcases, ")", sep = ""), 
                                                         sep = " ")), hjust = 0, 
                                       nudge_x = 0.05, size = 5, col = "black") +
-                      ggtitle("Cumulative Counts of VoC Lineages with Mutations of Interest, no B.1.1.7") +
+                      ggtitle("Cumulative Counts of VOC Lineages with Mutations of Interest, no B.1.1.7") +
                       scale_x_date(date_labels = "%b-%Y")
 
 
@@ -1273,7 +1311,7 @@ plot_non_voc <- ggplot(mut_lin_date_grouped_final_non_voc, aes(x = date, y = cum
                                     aes(label = paste(lineage, paste("(", cumcases, ")", 
                                                                      sep = ""), sep = " ")), hjust = 0, 
                                                                      nudge_x = 0.05, size = 5, col = "black") +
-                    ggtitle("Cumulative Counts of non-VoC Lineages with Mutations of Interest") +
+                    ggtitle("Cumulative Counts of non-VOC Lineages with Mutations of Interest") +
                     scale_x_date(date_labels = "%b-%Y")
 
                   
@@ -1312,17 +1350,10 @@ plot_voc_no_b117
 plot_non_voc
 ```
 
-\
-\
-
-***
-
 <br> 
 <br> 
 
-# Variants of Interest (VoI)
-\
-A list of the current Pango lineages that are classified as VoIs by PHO can be found in the  [Technical Notes](#technical-notes).
+# Variants of Interest (VOI)
 
 ```{r, include = FALSE, echo=FALSE}
 
@@ -1539,7 +1570,7 @@ rolling.cases.voi$lin.fac <- factor(rolling.cases.voi$lineage,
 #      geom_text(data=rect.s5, aes(x = xmin, y = ymin, 
 #                                  label = "Samples recieved \nduring this time period\nmay not yet be\nsequenced"), 
 #                                   size = 5, vjust = -1, hjust = -0.05, color = "black") +
-#     # ggtitle(paste("Watchlist lineages (VoC) as of ", format(last(rolling_cases$date), "%b-%d-%Y"), #    sep="")) +
+#     # ggtitle(paste("Watchlist lineages (VOC) as of ", format(last(rolling_cases$date), "%b-%d-%Y"), #    sep="")) +
 #     xlab("Login Date") +
 #     ylab("Cumulative number of sequences") + scale_x_date(date_labels = "%b-%Y") +
 #   scale_y_continuous(breaks = pretty_breaks())
@@ -1550,7 +1581,7 @@ rolling.cases.voi$lin.fac <- factor(rolling.cases.voi$lineage,
 
 
 
-<!-- ## VoI Sequence Numbers -->
+<!-- ## VOI Sequence Numbers -->
 
 ```{r, results='asis', echo=FALSE, warning=FALSE, , include=F}
 # max.counts.voi <- rolling.cases.voi %>% group_by(lin.fac) %>% filter(cumcases == max(cumcases))
@@ -1570,11 +1601,9 @@ rolling.cases.voi$lin.fac <- factor(rolling.cases.voi$lineage,
 #                             "}"))) 
 
 ```
-\
 
-## VoI Lineage Frequencies by Epidemiological Week
-
-*Note: Interpret with caution as there have been several changes in sequencing strategies over this time period.*
+## VOI Lineage Frequencies by Epidemiological Week
+<font size="2"> Includes lineages represented by &#8805;10 genomes </font> 
 
 ```{r, include=FALSE}
 
@@ -1590,8 +1619,15 @@ getPalette = colorRampPalette(brewer.pal(11, "GnBu"))
 # cols.voi <- c("#6B013E","#B2126E", "#CD398D","#DE77AE", "#EAA1CB","#F4C3E1","grey10", "grey50", "grey90", 
 #               "#C7DDE3", "#A5C8D2", "#629FB0", "#325F6C")
 
-cols.voi <- c("#6B013E", "#CD398D", "#EAA1CB","#F4C3E1","grey50", "grey80", 
-              "#C7DDE3", "#A5C8D2", "#629FB0", "#325F6C")
+# cols.voi <- c("#6B013E", "#CD398D", "#EAA1CB","#F4C3E1","grey10", "grey50", "grey70", "grey90", 
+#               "#C7DDE3", "#A5C8D2", "#629FB0", "#325F6C")
+
+# cols.voi <- c("#6B013E", "#CD398D", "#EAA1CB","#F4C3E1","grey10", "grey50", "grey70", "grey90", 
+#               "#C7DDE3", "#A5C8D2", "#629FB0", "#325F6C")
+
+cols.voi <- c("A.23.1" = "#DBB9EC", "P.2" = "#CB627B", "R.1" = "#B13F63", "B.1.1.318"="#346F8C", 
+              "B.1.1.7 with E484K" = "#4389A0", "B.1.2 with E484K" = "#69A5B5", 
+              "B.1.525" = "#A6D9D8", "B.1.526" = "#C8ECE7", "B.1.617.1" = "grey50")
 
 # Generate plot of VOIs over epi weeks
 plot.voi <- meta.df.2021 %>%
@@ -1602,6 +1638,9 @@ plot.voi <- meta.df.2021 %>%
                          by = c("epi.wk.login" = "epiwk.list.all")) %>%
                     group_by(epi.wk.login, lineage) %>%
                     summarise(`Num. genomes` = n()) %>%
+                    group_by(lineage) %>%
+                    mutate(Tot = sum(`Num. genomes`)) %>% 
+                    filter(Tot > 10) %>%
                     ggplot(aes(x = epi.wk.login, y = `Num. genomes`, 
                                fill = lineage, label=lineage, label2=`Num. genomes`)) +
                     #ggplot(aes(x = epi.wk.login, y = n, fill = lineage.all)) +
@@ -1620,17 +1659,17 @@ plot.voi <- meta.df.2021 %>%
                                     #legend.spacing.y = unit(0.3, "cm"),
                                     #legend.key.width = unit(0.6, "cm"),
                                     #legend.key.height = unit(0.3, "cm"),
-                                    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
+                                    axis.text.x = element_text(size = 40, angle = 90, hjust = 1, vjust = 2),
                                     axis.text.y = element_text(size = 10),
-                                    axis.title.x = element_text(angle = 0, size = 10, 
-                                                                margin = margin(t = 10, r = 0, b = 0, l = 0)),
-                                    axis.title.y = element_text(size = 10)) +
+                                    axis.title.x = element_text(angle = 0, size = 10,
+                                                                margin = margin(t = 30, r = 0, b = 0, l = 0)),
+                                    axis.title.y = element_text(size = 10, margin = margin(t = 10, r = 30, b = 0, l = 0))) +
   #scale_fill_manual(values = getPalette(colourCount)) +
                       scale_fill_manual(values = cols.voi, na.translate = F) +
   #scale_fill_brewer(palette = "PiYG") +
                       scale_y_continuous("Number of genomes", 
-                                      limits = c(0, 250), 
-                                      breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250), 
+                                      limits = c(0, 300), 
+                                      breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250,275,300), 
                                       expand = c(0.02, 0)) +
                                       scale_x_discrete("Epidemiological week", expand = c(0,0.5)) + 
                 coord_capped_cart(left='both', bottom = 'right') +
@@ -1643,19 +1682,24 @@ plot.voi <- meta.df.2021 %>%
 
 ```{r, warning=FALSE, fig.width=10, fig.height=5,  echo=FALSE, message=FALSE, include=T}
 
-plot.voi
+ggplotly(plot.voi, tooltip = c("label", "label2"), width = 900, height = 450)   %>%
+layout(showlegend = TRUE, legend = list(font = list(size = 10)), #, x=15, y=0.5
+       xaxis = list(tickfont = list(size = 12),
+                    titlefont=list(size=2)),
+                    title=list(standoff=100L),
+       yaxis = list(tickfont = list(size = 12)))%>% 
+  config(displayModeBar = F)
 
-#
 
-# ggplotly(plot.voi, tooltip = c("label", "label2"), width = 900, height = 450)   %>%
-# layout(showlegend = TRUE, legend = list(font = list(size = 10)),
-#        xaxis = list(tickfont = list(size = 12),
-#                     titlefont=list(size=12)),
-#                     title=list(standoff=20),
-#        yaxis = list(tickfont = list(size = 12)))
-#ggplotly(plot.voi) 
 
 ```
+
+*Note: Interpret with caution as there have been several changes in sequencing strategies over this time period.*
+
+\
+
+A list of the current Pango lineages that are classified as VOIs by PHO can be found in the  [Technical Notes](#technical-notes).
+
 
 \
 \
@@ -1667,9 +1711,9 @@ plot.voi
 
 # Mutation distributions
 
-A table comprising the total counts and percentage of samples that have particular mutations can demonstrate the patterns of mutations across both VoC and non-VoC lineages. Characterization of these mutation patterns can assist in revealing the identity of mutations that may contribute to increased levels of clade and lineage transmission.\
+A table comprising the total counts and percentage of samples that have particular mutations can demonstrate the patterns of mutations across both VOC and non-VOC lineages. Characterization of these mutation patterns can assist in revealing the identity of mutations that may contribute to increased levels of clade and lineage transmission.\
 \
-The percentage represents to the proportion of all samples in the specific category (VoC or non-VoC) that have this mutation detected. Blank cells indicate that the mutation was not yet observed in the particular sample category (VoC or non-VoC) for samples sequenced at PHO. 
+The percentage represents to the proportion of all samples in the specific category (VOC or non-VOC) that have this mutation detected. Blank cells indicate that the mutation was not yet observed in the particular sample category (VOC or non-VOC) for samples sequenced at PHO. 
 
 <p>Information on the specific mutation profiles of Pango lineages can be found at:
 [Outbreak.info](https://outbreak.info/)</p>
@@ -1677,20 +1721,19 @@ The percentage represents to the proportion of all samples in the specific categ
 <p>*Note: Not all positions in the genome have sufficient depth to enable detection.*<p>
 
 \
-```{r, include=F}
-# placeholder
-```
+\
+
 ## Mutation Frequencies for the Spike (S) Gene
 
 ```{r, include=FALSE}
 # qc50_highest_voc <- meta.df.2021[meta.df.2021$lineage.all %in% voc.list,]
 with_change_since_last <- meta.df.2 %>%
                             mutate(time.cat.new = ifelse(!is.na(Processed_results_date) &
-                                                 (Processed_results_date >= prev.epiwk$d0 & 
-                                                  Processed_results_date <= prev.epiwk$d1), 
-                                                 "New",  "Old")) %>% 
-                            filter(Login.Date >= "2021-01-01")  %>% 
-                            filter(!is.na(lineage.all) & 
+                                                 (Processed_results_date >= prev.epiwk$d0 &
+                                                  Processed_results_date <= prev.epiwk$d1),
+                                                 "New",  "Old")) %>%
+                            filter(Login.Date >= "2021-01-01")  %>%
+                            filter(!is.na(lineage.all) &
                                      lineage.all != "None")
 
 qc50_highest_voc <- with_change_since_last[with_change_since_last$lineage.all %in% voc.list,]
@@ -1770,8 +1813,8 @@ all_non_voc_muts <- all_non_voc_muts %>% arrange(-`Percent of non-VoC Genomes`)
 
 ```{r, results='asis', echo=FALSE,include = F}
 merge_mutations <- merge(all_voc_muts, all_non_voc_muts, by.x = "Mutation",
-                         by.y = "Mutation", all=T) %>% 
-                        subset(select=c(-Gene.x)) %>% 
+                         by.y = "Mutation", all=T) %>%
+                        subset(select=c(-Gene.x)) %>%
                         arrange(-`Percent of VoC Genomes`)
 setnames(merge_mutations, "Gene.y", "Gene")
 only_spike <- subset(merge_mutations, Gene == "S")
@@ -1782,14 +1825,14 @@ rownames(only_spike) <- NULL
 only_spike <- only_spike %>%
                 dplyr::select(-Gene)
 
-datatable(as.data.frame(only_spike), 
-          options = list(pageLength = 10, 
+datatable(as.data.frame(only_spike),
+          options = list(pageLength = 10,
                    columnDefs = list(list(className = 'dt-left', targets = 1:3),
                                      list(className = 'dt-center', targets = 4)),
                    autowidth = TRUE,initComplete = JS(
                             "function(settings, json) {",
                             "$(this.api().table().header()).css({'color': 'white'});",
-                            "}"))) 
+                            "}")))
 
 ```
 
@@ -1811,7 +1854,7 @@ sketch_muts = htmltools::withTags(table(
 ))
 
  datatable(as.data.frame(only_spike),
-           container = sketch_muts, 
+           container = sketch_muts,
            fillContainer = getOption("DT.fillContainer", NULL),
            rownames = FALSE,
           # caption = 'Table 1: This is a simple caption for the table.',
@@ -1825,204 +1868,14 @@ sketch_muts = htmltools::withTags(table(
                      autowidth = TRUE, initComplete = JS(
                               "function(settings, json) {",
                               "$(this.api().table().header()).css({'color': 'white'});",
-                              "}"))) #%>% 
+                              "}"))) #%>%
  # formatStyle(c(1,3), `border-right` = "solid 2px red")
 ```
 
-\
-* Since last report
-\
 
-```{r, results='asis', echo=FALSE, include=F}
-# datatable(as.data.frame(all_muts_frame_no_voc), extensions = 'Buttons',
-#           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
-
-datatable(as.data.frame(all_muts_frame_no_voc), 
-          options = list(pageLength = 10, 
-                   # columnDefs = list(list(className = 'dt-left', targets = 1:3),
-                   #                   list(className = 'dt-center', targets = 4)),
-                   autowidth = TRUE,initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'color': 'white'});",
-                            "}"))) 
-
-```
 \
 \
-```{r, results='asis', echo=FALSE, include=F}
-# datatable(as.data.frame(all_muts_frame), extensions = 'Buttons',
-#           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
 
-datatable(as.data.frame(all_muts_frame), 
-          options = list(pageLength = 10, 
-                   # columnDefs = list(list(className = 'dt-left', targets = 1:3),
-                   #                   list(className = 'dt-center', targets = 4)),
-                   autowidth = TRUE,initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'color': 'white'});",
-                            "}"))) 
-```
-
-<!-- ## Pango lineage distribution among spike (S) protein mutations of concern for non-VoC/VoIs -->
-<!-- \ -->
-<!-- Tracking the distribution of lineages among the mutations of concern observed in the Spike protein S,  -->
-<!-- which currently includes S:E484K and S:N501Y, allows for the identification of non-VoC and non-VoI lineages that carry mutations of concern. Spike mutations are correlated to increased transmissability and the potential for a vaccine escape mechanism when observed in conjunction with other mutations. Spike protein mutations S:E484K and S:N501Y have been observed both together and individually in Pango VoC and non-VoC lineages, so monitoring their frequency across all lineages will assist in tracking the phylogenetic power of these mutations.  -->
-
-<!-- It is important to note that the Pango lineage identifier is dynamic, and is subject to change as the software and algorithm for lineage designation becomes more robust with a larger global dataset. As such, certain lineages designations for non-VoCs with S mutations may later be re-assigned to a VoC Pango lineage, and/or vice versa.  -->
-<!-- \ -->
-<!-- \ -->
-
-<!-- ## Combined VoC and VoI Mutations -->
-```{r, results='asis', echo=FALSE}
-# # these are the combined VoC and VoI mutations
-# lineages <- c("B.1.1.7", "B.1.351", "P.1", "P.2", "P.3", "B.1.525", "R.1", "B.1.1.318", "B.1.427", "B.1.429", "B.1.526", "B.1.526.1", "B.1.617", "B.1.617.1", "B.1.617.2", "B.1.617.3")
-# 
-# non_voc_voi_counts <- mut_lin_date_grouped_final[! mut_lin_date_grouped_final$lineage %in% lineages,]
-# 
-# max_date_each_lin_non_voc <- non_voc_voi_counts %>% group_by(mutation, lineage) %>% filter(date == max(date))
-# 
-# table_mutations_non_voc <- subset(max_date_each_lin_non_voc, select = c(Mutation = mutation, Lineage = lineage, cumcases)) %>%
-#   arrange(-cumcases) %>%
-#  dplyr::select("Mutation" = "mutation", "Lineage" = "lineage", "Number of Genomes"= "cumcases")
-# # datatable(as.data.frame(table_mutations_non_voc), extensions = 'Buttons',
-# #           options = list(pageLength = 25, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
-# 
-# 
-# datatable(as.data.frame(table_mutations_non_voc), 
-#           options = list(pageLength = 10, 
-#                    # columnDefs = list(list(className = 'dt-left', targets = 1:3),
-#                    #                   list(className = 'dt-center', targets = 4)),
-#                    autowidth = TRUE,initComplete = JS(
-#                             "function(settings, json) {",
-#                             "$(this.api().table().header()).css({'color': 'white'});",
-#                             "}"))) 
-
-```
-\
-\
-```{r, include=FALSE}
-
-# subset_other_lineages <- subset(meta.df.2021, ! lineage.all %in% lineages) %>%
-#   arrange(date) %>%
-#   group_by(lineage.all, date) %>% 
-#   summarise(counts = n())
-# 
-# rolling_cases_other <- subset_other_lineages %>% group_by(lineage.all, .drop = FALSE) %>%
-#   mutate(cumcases = cumsum(counts), change = cumcases - lag(cumcases), days_between = date - lag(date))
-# 
-# rolling_cases_other$rate <- rolling_cases_other$change / as.numeric(rolling_cases_other$days_between)
-# 
-# rolling_cases_other$rate[is.na(rolling_cases_other$rate)] <- 0
-# 
-# highest_rates <- subset(rolling_cases_other, date > as.Date(Sys.Date() - 30)) %>% group_by(lineage.all) %>% filter(rate == max(rate)) %>%
-#   arrange(desc(rate))
-# 
-# highest_rates_lineages <- highest_rates[1:12,]$lineage.all
-# 
-# rolling_avg <- rolling_cases_other %>% group_by(lineage.all) %>%
-#   mutate(mean = (rate + lag(rate))/2)
-# 
-# highest_daily_ontario <- rolling_avg[rolling_avg$lineage.all %in% highest_rates_lineages,]
-# 
-# high_daily <- ggplot(highest_daily_ontario,
-#        aes(x = date, y = rate)) + geom_line(col = "black") +
-#   geom_smooth(method = "loess", span = 0.3, se = FALSE, col = "red", size = 0.5) +
-#   facet_wrap(~lineage.all, ncol = 3) +
-#   ylim(c(0, max(rolling_avg$rate + 15))) +
-#   theme(axis.title.x = element_text(vjust=-0.5),
-#         plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-#         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-#         panel.background = element_blank(), axis.line = element_line(colour = "black"),
-#         panel.spacing.x = unit(15, "mm")) +
-#   scale_x_date(date_labels = "%b-%Y") +
-#   ggtitle("Greatest single-day rates of change, past month, non-VoC lineages") +
-#   ggtitle(paste("Pango Lineages w/ highest daily rates, past month, non-VoC, as of ", format(Sys.Date(), "%b-%d-%Y"), sep="")) + xlab("Login Date") + ylab("Daily Case Number Increase")
-
-
-```
-
-
-```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.width=10, fig.height=13.5, include=FALSE}
-# high_daily
-```
-
-```{r, include=FALSE, echo=FALSE}
-# overlap number in top 250 mutations for vocs and non vocs
-# top_muts_voc <- as.vector(all_muts_frame$mutation[1:250])
-# top_muts_non_voc <- as.vector(all_muts_frame_no_voc$mutation[1:250])
-# length(intersect(top_muts_non_voc, top_muts_voc))
-
-```
-
-```{r, include=FALSE}
-# trees_loc <- list.files("/home/mwatson/COVID-19/surveillance_reports/07-Apr-2021/", pattern = "iqtree.nwk", recursive = T)
-# tree_paths <- paste("/home/mwatson/COVID-19/surveillance_reports/07-Apr-2021/", trees_loc,
-#                     sep="")
-# tree_paths
-# ```
-# ```{r, echo=FALSE, warning=FALSE, fig.height=13, fig.width=12, include=FALSE}
-# for (i in tree_paths) {
-#   tree <- read.tree(i)
-#   tree <- drop.tip(tree, "MN908947")
-# 
-#   ## Create a data frame of the tree
-#   tr.df <- fortify(tree)
-#   ## Create a list of tree labels
-#   tr.df.labs <- as.data.frame(tr.df) %>%
-#   filter(isTip == "TRUE") %>%
-#   select(label)
-# 
-#   # if the sample is not on the qc50 list, drop it from the tree
-#   sample_no_pass <- as.data.frame(tr.df.labs[!tr.df.labs$label %in% meta.df.2$WGS_Id,])
-#   colnames(sample_no_pass) <- "label"
-#   tree <- drop.tip(tree, as.vector(sample_no_pass$label))
-# 
-#   ## Create a dataframe of the tree
-#   tr.df <- fortify(tree)
-#   ## Create a list of tree labels
-#   tr.df.labs <- tr.df %>%
-#     filter(isTip == "TRUE") %>%
-#     select(label)
-#   
-#   date_cat <- interval(ymd(Sys.Date() - 7), ymd(Sys.Date()))
-#   meta.df.2$date_cat <- ifelse(meta.df.2$date %within% date_cat, "Latest Week", "All Past Weeks")
-#   qc50_keep <- subset(meta.df.2, select = c(WGS_Id, date, date_cat))
-#   meta.df <- merge(tr.df.labs, qc50_keep, by.x = "label", by.y = "WGS_Id")
-#   # treat the countries as a factor for plotting
-#   meta.df$date_cat <- as.factor(meta.df$date_cat)
-#   
-#   
-#   cols <- c("Latest Week" = "dark blue",  "All Past Weeks" = "grey60")
-#   
-#   meta.df$nml_lab <- paste("ON-PHL", str_split_fixed(meta.df$label, "PHLON|-SARS", 4)[,2],
-#                          str_split_fixed(meta.df$label, "PHLON|-SARS", 4)[,3], sep = "-")
-#   pl.1 <- ggtree(tree, size = 0.5)
-#   pl.2 <- pl.1 %<+% meta.df +
-#     geom_tippoint(aes(x=x+0.000001, subset=date_cat == "Latest Week", label = label, colour = date_cat),
-#                   size = 2, shape = 16) +
-#     geom_tippoint(aes(x=x+0.000001, subset=date_cat == "All Past Weeks", label = label, colour = date_cat),
-#                   size = 2, shape = 16) +  
-#   #geom_tiplab(aes(x=x+0.000001, subset=date_cat == "Latest Week", label = nml_lab),  size = 1.5, offset = 0.000005) +
-#   # geom_tiplab(aes(x=x+0.000001, subset=label.2 == "non-PHO", label = label),  size = 1.5, offset = 0.000005) +
-#     theme(plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm"),
-#         legend.text=element_text(size=12),
-#         legend.position = c(0.85, 0.5),
-#         plot.title = element_text(size = 20),
-#         legend.title=element_text(size=15, face = "bold"),
-#         legend.box = "vertical",
-#         legend.box.margin = margin(0.01,0.02,0.02,0.02,"cm"),
-#         legend.box.background = element_rect(colour = "grey50"),
-#         legend.spacing.y = unit(0.1, "cm"),
-#         legend.key.width = unit(0.3, "cm"),
-#         legend.key.height = unit(0.3, "cm"),
-#         legend.spacing.x = unit(0.3, 'cm'),
-#         legend.key.size = unit(3,"lines")) +
-#     scale_color_manual("Sequencing Period", values=cols) +
-#     guides(color = guide_legend(override.aes = list(size = 1.75))) +
-#     ggtitle(paste("Phylogenetic tree, ", str_split_fixed(i, "/", 8)[7], sep=""))
-#   print(pl.2)
-# }
-```
 
 ***
 
@@ -2031,10 +1884,9 @@ datatable(as.data.frame(all_muts_frame),
 Phylogenetic trees are generated through a statistical procedure that infers the ancestry and
 similarity among sequences by considering their mutation profiles among with a model for mutation substitution rates. As such they represent the best possible relationship among a group of samples based on the mutation information available to the model. These relationships should not be considered as absolute, and are subject to biases related to sample quality and depth of sequencing coverage. 
 
-Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthontario.ca/ncov/) represent a subset of all samples sequenced at PHO that were selected based on genome completeness and overall high sequencing quality. Therefore the trees may not be reflective of the VoC sample numbers in the province at any specific point in time. 
+Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthontario.ca/ncov/) represent a subset of all samples sequenced at PHO that were selected based on genome completeness and overall high sequencing quality. Therefore the trees may not be reflective of the VOC sample numbers in the province at any specific point in time. 
 
 \
-
 [Nextstrain for PHO B.1.1.7 genomes](https://nextstrain.publichealthontario.ca/ncov/?c=Pango.Lineage&f_Pango.Lineage=B.1.1.7&label=clade:20I/501Y.V1)
 \
 
@@ -2043,7 +1895,14 @@ Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthont
 
 [Nextstrain for PHO P.1 genomes](https://nextstrain.publichealthontario.ca/ncov/?c=Pango.Lineage&f_Pango.Lineage=P.1&label=clade:20J/501Y.V3)
 \
+
+[Nextstrain for PHO B.1.617.2 genomes](https://nextstrain.publichealthontario.ca/ncov/?f_Pango.Lineage=B.1.617.2) \
+(**Note: ** Select *Zoom to selected* to view these genomes as they have not yet been assigned to a Nextstrain clade)
 \
+\
+
+
+
 
 <br>
 
@@ -2056,9 +1915,7 @@ Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthont
 3. Outbreak.info. https://outbreak.info/
 \
 \
-```{r, include=FALSE}
-#placeholder
-```
+
 
 <br>
 
@@ -2067,7 +1924,7 @@ Phylogenetic trees shown through [Nextstrain](https://nextstrain.publichealthont
 # Technical Notes
 
 ## Pango lineage assignment categories
-As of this date of reporting, Pango lineages are categorized based on the following assignment criteria: 
+ 
 \
 ```{r, fig.height=12, fig.width=13, echo=FALSE}
 
@@ -2079,60 +1936,53 @@ voc.voi.list <-  voc.voi.list %>%
                   select(VOC = voc.list, VOI = voi.list) %>% 
                   arrange(VOC, VOI) %>%
                   mutate(VOC = ifelse(!is.na(VOC), VOC, ""))
+
+
+
+reactable(as.data.frame(voc.voi.list), 
+          outlined = TRUE, 
+          borderless = TRUE,
+          fullWidth = FALSE,
+          pagination = FALSE,
+          compact = TRUE, 
+          #height = 150,
+          columns = list(
+    VOC = colDef(width = 200, style = list(paddingLeft = "30px"), 
+                 headerStyle = list(background = "#595959", height = 50, paddingTop = "15px", 
+                                    paddingLeft = "30px", color = "white")),
+    VOI = colDef(width = 200, style = list(paddingLeft = "20px"),
+                 headerStyle = list(background = "#595959", height = 50, paddingTop = "15px", 
+                                    paddingLeft = "20px", color = "white"))))
+
+
+#,  #marginLeft = "20px"
+    #       theme = reactableTheme(cellPadding = "15px"))
+#style = list(marginLeft = "20px"), 
+
    
-
-# kable(as.data.frame(voc.voi.list), caption = "Pango lineage designation guide",
-#       align=rep('l', 5))
-
-datatable(as.data.frame(voc.voi.list), 
-          options = list(pageLength = 20, 
-                   # columnDefs = list(list(className = 'dt-left', targets = 1:3),
-                   #                   list(className = 'dt-center', targets = 4)),
-                   autowidth = TRUE,initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'color': 'white'});",
-                            "}"))) 
-
-
+# 
+# # kable(as.data.frame(voc.voi.list), caption = "Pango lineage designation guide",
+# #       align=rep('l', 5))
+# 
+# datatable(as.data.frame(voc.voi.list), 
+#           options = list(pageLength = 20, 
+#                    # columnDefs = list(list(className = 'dt-left', targets = 1:3),
+#                    #                   list(className = 'dt-center', targets = 4)),
+#                    autowidth = TRUE,initComplete = JS(
+#                             "function(settings, json) {",
+#                             "$(this.api().table().header()).css({'color': 'white'});",
+#                             "}"))) 
 
 
 ```
-
-## Mutations of Concern with VoC/VoI designations
-
-```{r, echo = F, message=F, warning=F, fig.height=12, fig.width=13, include = F}
-# test a frame with 484 counts for both VOI and VOCS (INCOMPLETE IN PROGRESS)
-
-only_484_voc <- merged_voc_ontario[grepl("S:E484", merged_voc_ontario$aaSubstitutions),] %>%
-  group_by(lineage_all) %>% summarise(Spike_484_counts = n())  %>% rename(voc.list = lineage_all)
-
-voc_info <- merge(VOC.df, only_484_voc, by = "voc.list", all = T) %>% rename(lineage = voc.list) %>%
-  mutate(Category = "VoC")
-
-only_484_voi <- merged_non_voc_ontario[grepl("S:E484", merged_non_voc_ontario$aaSubstitutions),] %>%
-  subset(lineage.all %in% voi.list) %>%
-  group_by(lineage_all) %>% summarise(Spike_484_counts = n()) %>% mutate(Category = "VoI") %>% rename(voi.list = lineage_all)
-
-voi_info <- merge(VOI.df, only_484_voi, by = "voi.list", all = T) %>% rename(lineage = voi.list) %>%
-  mutate(Category = "VoI")
-
-all_with_484_counts <- rbind(voc_info, voi_info) %>% mutate(Spike_484 = ifelse(!is.na(Spike_484_counts), "X",""))
-
-datatable(as.data.frame(all_with_484_counts[,c(1, 3, 4, 2)]), 
-          options = list(pageLength = 20, 
-                   # columnDefs = list(list(className = 'dt-left', targets = 1:3),
-                   #                   list(className = 'dt-center', targets = 4)),
-                   autowidth = TRUE,initComplete = JS(
-                            "function(settings, json) {",
-                            "$(this.api().table().header()).css({'color': 'white'});",
-                            "}"))) 
-
-
-
-```
-
 \
 \
+
+
+<br>
+
+***
+
 
 # Appendix
 
@@ -2141,18 +1991,24 @@ datatable(as.data.frame(all_with_484_counts[,c(1, 3, 4, 2)]),
 ```{r, echo=F, warning=F, message=F}
 replace_lineages <- subset(as.data.frame(meta.df), lineage_all != "None" & as.character(lineage_all) !=
                              as.character(lineage_plate) & lineage_plate != "" & lineage_all != "") %>%
-  dplyr::select(Login_Date, lineage_plate, lineage_all)
+                              dplyr::select(Login_Date, lineage_plate, lineage_all)
 
 replace_lineages$reassign <- factor(paste(replace_lineages$lineage_plate, "->", replace_lineages$lineage_all, sep=" "))
 
-replace_lin_grouped <- replace_lineages %>% group_by(Login_Date, reassign) %>% dplyr::summarise(counts = n()) %>%
-  group_by(Login_Date, reassign) %>% dplyr::summarise(cumcounts = cumsum(counts))
+replace_lin_grouped <- replace_lineages %>% 
+                        group_by(Login_Date, reassign) %>% 
+                        dplyr::summarise(counts = n()) %>%
+                        group_by(Login_Date, reassign) %>% 
+                        dplyr::summarise(cumcounts = cumsum(counts))
 
-dates_reassign <- replace_lineages %>% group_by(reassign) %>% dplyr::mutate(counts = n()) %>% filter(Login_Date == min(Login_Date) | Login_Date == max(Login_Date)) %>% 
-  dplyr::distinct() %>% group_by(reassign) %>%
-  dplyr::mutate(Earliest = min(Login_Date), Latest = max(Login_Date)) %>%
-  dplyr::select(reassign, counts, Earliest, Latest) %>%
-  dplyr::distinct() %>% arrange(-counts)
+dates_reassign <- replace_lineages %>% 
+                    group_by(reassign) %>% 
+                    dplyr::mutate(counts = n()) %>% 
+                    filter(Login_Date == min(Login_Date) | Login_Date == max(Login_Date)) %>% 
+                    dplyr::distinct() %>% group_by(reassign) %>%
+                    dplyr::mutate(Earliest = min(Login_Date), Latest = max(Login_Date)) %>%
+                    dplyr::select(reassign, counts, Earliest, Latest) %>%
+                    dplyr::distinct() %>% arrange(-counts)
 
 ```
 
