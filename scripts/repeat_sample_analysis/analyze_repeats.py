@@ -14,14 +14,15 @@ def get_grouping(data_frame):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Analyze a set of sample repeats for similarity and coverage statistics')
+    parser = argparse.ArgumentParser(description='Analyze a set of sample repeats for similarity and coverage'
+                                                 'statistics')
     parser.add_argument('--multi_fasta', '-f', type=str, help='Multi-fasta to evaluate sequences from', required=True)
-    parser.add_argument('--snp_dists', '-s', type=str, help='CSV file of SNP differenes from snp-dists in molten format',
-                    required=True)
+    parser.add_argument('--snp_dists', '-s', type=str, help='CSV file of SNP differences from snp-dists in molten'
+                                                            'format', required=True)
     parser.add_argument('--output_dir', '-o', type=str, help='output directory for single modified fasta files',
-                    required=True)
-    parser.add_argument('--fasta_mixed', '-m', type=str, help='Multi-fasta without exclusively ACGT to count mixed positions',
-                    required=True)
+                        required=True)
+    parser.add_argument('--fasta_mixed', '-m', type=str, help='Multi-fasta without exclusively ACGT to count mixed'
+                                                              'positions', required=True)
     parser.add_argument('--metadata', '-d', type=str, help='Optional metadata frame with additional sample information',
                         required=False)
 
@@ -33,11 +34,12 @@ def main():
     # filter if the sample 1 name is in the second column, and filter by snp distances
     new_frame = snp_dists[[x[0] in x[1] for x in zip(snp_dists['sam_1'], snp_dists['comparing'])]]
     identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance == 0]
-    non_identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance != 0]
+    # non_identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance != 0]
 
     diff_name_identical = snp_dists[~snp_dists.sam_1.isin(identical_frame.sam_1)]
     diff_name_identical = diff_name_identical[~diff_name_identical.sam_1.isin(identical_frame.comparing)]
-    diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1 not in x.comparing, axis=1)][snp_dists.distance == 0]
+    diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1 not in
+                                                                        x.comparing, axis=1)][snp_dists.distance == 0]
     diff_name_identical = diff_name_identical[~diff_name_identical['sam_1'].isin(['MN908947'])]
 
     if len(diff_name_identical) != 0:
@@ -104,11 +106,12 @@ def main():
         stripped_frame, grouped_min_frame = get_grouping(n_counts_frame)
         final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left'). \
             merge(stripped_frame, on='sample_name', how='left').drop(['standard_name'], axis=1)
-        final_frame['exclude_analysis'] = np.where(final_frame['sample_name'].isin(grouped_min_frame['sample_name']),
-                                                "N", "Y")
+        final_frame['Exclude_from_analysis'] = np.where(final_frame['sample_name'].isin
+                                                        (grouped_min_frame['sample_name']), "N", "Y")
         if args.metadata is not None:
-            with_metadata = pd.merge(pd.read_csv(args.metadata), final_frame, how='inner', left_on='WGS_Id',
-                                         right_on='sample_name').drop(['sample_name'], axis=1)
+            with_metadata = pd.merge(pd.read_csv(args.metadata).drop(['Exclude_from_analysis'], axis = 1), final_frame,
+                                     how='inner', left_on='WGS_Id', right_on='sample_name').drop(['sample_name'],
+                                                                                                 axis=1)
             with_metadata.sort_values(by=['WGS_Id']).to_csv("identical_sequences_w_metadata.csv", index=False)
         if args.metadata is None:
             final_frame.sort_values(by=['sample_name']).to_csv("identical_sequences.csv", index=False)
