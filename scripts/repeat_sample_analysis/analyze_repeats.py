@@ -7,6 +7,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+def get_samples_without_repeat_partner(data_frame):
+    return (data_frame.groupby(['standard_name']).filter(lambda x: len(x) < 2).shape[0],
+            data_frame.groupby(['standard_name']).filter(lambda x: len(x) < 2)[["sample_name"]])
+
+
 # return a frame that selects the sample with the highest completeness among repeats
 def get_lowest_n_count_grouping(master_frame):
     # master_frame['standard_name'] = master_frame['sample_name'].map(lambda x: x.split('-v', 1)[0])
@@ -16,7 +21,7 @@ def get_lowest_n_count_grouping(master_frame):
 
 
 # create a data frame thatr groups samples based on their shared name, creating repeat groups
-def get_grouped_data_frame(data_frame):
+def get_standard_name(data_frame):
     data_frame['standard_name'] = data_frame['sample_name'].map(lambda x: x.split('-v', 1)[0])
     return data_frame
 
@@ -86,7 +91,8 @@ def main():
 
     print("Identical Sequences: {}".format(n_counts_frame.shape[0]))
     if n_counts_frame.shape[0] != 0:
-        print(n_counts_frame.sort_values(by=['sample_name'], ascending=True))
+        print(n_counts_frame[["sample_name"]].sort_values(by=['sample_name'], ascending=True).to_string(index=False,
+                                                                                                        header=False))
     else:
         print("None")
 
@@ -132,13 +138,21 @@ def main():
                                                                                               on="sample_name",
                                                                                               how='left')
 
+        # if a sample does not have at least one repeat partner, raise awareness
+        if get_samples_without_repeat_partner(get_standard_name(final_frame))[0] > 0:
+            print("WARNING: some samples do not have repeat partner(s). Please investigate the following: ")
+            print(get_samples_without_repeat_partner(get_standard_name(final_frame))[1].to_string(index=False,
+                                                                                                  header=False))
+        else:
+            print("PASSED: All samples have at least one partner sample for comparison")
+
         # filter all repeat groups where the coverage is over 90%
-        final_frame_over_90 = whole_group_over_90(get_grouped_data_frame(final_frame))
+        final_frame_over_90 = whole_group_over_90(get_standard_name(final_frame))
 
         # get thw lowest N counts for samples that were not in the both 90% category
         # if a sample of any of its partners is in the over 90% category, do not include them in the
         # N count lowest frame
-        min_frame_unfiltered = get_lowest_n_count_grouping(get_grouped_data_frame(final_frame))
+        min_frame_unfiltered = get_lowest_n_count_grouping(get_standard_name(final_frame))
         min_frame_filtered = filter_first_frame(min_frame_unfiltered, final_frame_over_90)
 
         # if the sample is in either of the minimum frames, do not exclude
@@ -182,9 +196,9 @@ def main():
                                      right_on='sample_name').drop(['sample_name', 'standard_name'], axis=1)
             with_metadata.sort_values(by=['WGS_Id']).to_csv("all_repeats_w_metadata.csv", index=False)
         else:
-            final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv("all_repeats.csv", index=False)
+            final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv("all_repeats.csv",
+                                                                                               index=False)
 
 
 if __name__ == '__main__':
     main()
-
