@@ -179,8 +179,8 @@ def main():
 
         if args.metadata is not None:
             with_metadata = pd.merge(pd.read_csv(args.metadata), final_frame, how='inner', left_on='WGS_Id',
-                                     right_on='sample_name').drop(['sample_name'], axis=1)
-            with_metadata.sort_values(by=['WGS_Id']).to_csv("identical_sequences_w_metadata.csv", index=False)
+                                     right_on='sample_name').drop(['sample_name', 'standard_name'], axis=1)
+            with_metadata.sort_values(by=['WGS_Id']).to_csv("all_repeats_w_metadata.csv", index=False)
         else:
             final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv("all_repeats.csv", index=False)
 
