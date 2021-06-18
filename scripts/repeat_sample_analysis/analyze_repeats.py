@@ -8,19 +8,18 @@ warnings.filterwarnings("ignore")
 
 
 def get_samples_without_repeat_partner(data_frame):
-    return (data_frame.groupby(['standard_name']).filter(lambda x: len(x) < 2).shape[0],
-            data_frame.groupby(['standard_name']).filter(lambda x: len(x) < 2)[["sample_name"]])
+    frame_no_partner = data_frame.groupby(['standard_name']).filter(lambda x: len(x) < 2)
+    return frame_no_partner.shape[0], frame_no_partner[["sample_name"]]
 
 
 # return a frame that selects the sample with the highest completeness among repeats
-def get_lowest_n_count_grouping(master_frame):
+def get_higher_completeness_grouping(master_frame):
     # master_frame['standard_name'] = master_frame['sample_name'].map(lambda x: x.split('-v', 1)[0])
-    min_frame = master_frame.loc[master_frame.groupby('standard_name').N_counts.idxmin()]
+    return master_frame.loc[master_frame.sort_values(by=['completeness'], ascending=False).groupby(
+        'standard_name').completeness.idxmax()]
 
-    return min_frame
 
-
-# create a data frame thatr groups samples based on their shared name, creating repeat groups
+# create a data frame that groups samples based on their shared name, creating repeat groups
 def get_standard_name(data_frame):
     data_frame['standard_name'] = data_frame['sample_name'].map(lambda x: x.split('-v', 1)[0])
     return data_frame
@@ -29,7 +28,8 @@ def get_standard_name(data_frame):
 # filter a data frame to exclude samples that are contained in a second data frame
 def filter_first_frame(data_frame_1, data_frame_2):
     return data_frame_1[(~data_frame_1.standard_name.isin(data_frame_2.sample_name)) &
-                        (~data_frame_1.sample_name.isin(data_frame_2.standard_name))]
+                        (~data_frame_1.sample_name.isin(data_frame_2.standard_name)) &
+                        (~data_frame_1.standard_name.isin(data_frame_2.standard_name))]
 
 
 # create a dataframe that contains only repeat groups where all samples are above 90% completeness
@@ -37,9 +37,9 @@ def filter_first_frame(data_frame_1, data_frame_2):
 # completeness
 def whole_group_over_90(data_frame):
     all_over_90 = data_frame.groupby('standard_name').filter(
-        lambda x: (x['N_counts'] <= 2990).all())
+        lambda x: (x['completeness'] >= 0.900).all())
     return all_over_90.loc[
-        all_over_90.sort_values(by=['N_counts'], ascending=True).groupby('standard_name').mixed_counts.idxmin()]
+        all_over_90.sort_values(by=['completeness'], ascending=False).groupby('standard_name').mixed_counts.idxmin()]
 
 
 def main():
@@ -50,7 +50,7 @@ def main():
                                                             'molten format', required=True)
     parser.add_argument('--output_dir', '-o', type=str, help='output directory for single modified fasta files',
                         required=True)
-    parser.add_argument('--fasta_mixed', '-m', type=str, help='Multi-fasta without exclusively ACGT to count'
+    parser.add_argument('--fasta_mixed', '-m', type=str, help='Multi-fasta without exclusively A,C,G,T to count'
                                                               'mixed positions', required=True)
     parser.add_argument('--metadata', '-d', type=str, help='Optional metadata frame with additional sample information',
                         required=False)
@@ -76,23 +76,23 @@ def main():
 
     fasta_sequences = SeqIO.parse(open(args.multi_fasta), 'fasta')
 
-    sam_n_counts = []
+    sam_completeness = []
     non_identical = []
     for record in fasta_sequences:
-        keys = ['sample_name', 'N_counts']
-        values = [record.id, record.seq.count("N")]
+        keys = ['sample_name', 'completeness']
+        values = [record.id, round(1 - (record.seq.count("N")/len(record.seq)), 3)]
         to_add = dict(zip(keys, values))
-        sam_n_counts.append(to_add)
+        sam_completeness.append(to_add)
         if record.id in non_identical_frame.sam_1.unique() or record.id in non_identical_frame.comparing.unique():
             non_identical.append(record.id)
 
-    n_counts_frame = pd.DataFrame(sam_n_counts)
+    completeness_frame = pd.DataFrame(sam_completeness)
     non_identical.sort()
 
-    print("Identical Sequences: {}".format(n_counts_frame.shape[0]))
-    if n_counts_frame.shape[0] != 0:
-        print(n_counts_frame[["sample_name"]].sort_values(by=['sample_name'], ascending=True).to_string(index=False,
-                                                                                                        header=False))
+    print("Identical Sequences: {}".format(completeness_frame.shape[0]))
+    if completeness_frame.shape[0] != 0:
+        print(completeness_frame[["sample_name"]].sort_values(by=['sample_name'], ascending=True).to_string(
+            index=False, header=False))
     else:
         print("None")
 
@@ -133,8 +133,8 @@ def main():
     mixed_counts["identical_called_snps"] = np.where(mixed_counts['sample_name'].isin(non_identical), "N", "Y")
     positions_frame = pd.DataFrame(pos.items(), columns=['sample_name', 'mixed_positions'])
 
-    if n_counts_frame.shape[0] != 0:
-        final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left').merge(n_counts_frame,
+    if completeness_frame.shape[0] != 0:
+        final_frame = mixed_counts.merge(positions_frame, on='sample_name', how='left').merge(completeness_frame,
                                                                                               on="sample_name",
                                                                                               how='left')
 
@@ -152,7 +152,7 @@ def main():
         # get thw lowest N counts for samples that were not in the both 90% category
         # if a sample of any of its partners is in the over 90% category, do not include them in the
         # N count lowest frame
-        min_frame_unfiltered = get_lowest_n_count_grouping(get_standard_name(final_frame))
+        min_frame_unfiltered = get_higher_completeness_grouping(get_standard_name(final_frame))
         min_frame_filtered = filter_first_frame(min_frame_unfiltered, final_frame_over_90)
 
         # if the sample is in either of the minimum frames, do not exclude
@@ -193,7 +193,7 @@ def main():
 
         if args.metadata is not None:
             with_metadata = pd.merge(pd.read_csv(args.metadata), final_frame, how='inner', left_on='WGS_Id',
-                                     right_on='sample_name').drop(['sample_name', 'standard_name'], axis=1)
+                                     right_on='sample_name').drop(['sample_name', 'standard_name', 'genome_completeness'], axis=1)
             with_metadata.sort_values(by=['WGS_Id']).to_csv("all_repeats_w_metadata.csv", index=False)
         else:
             final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv("all_repeats.csv",
