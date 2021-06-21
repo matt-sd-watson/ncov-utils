@@ -37,7 +37,7 @@ def filter_first_frame(data_frame_1, data_frame_2):
 # completeness
 def whole_group_over_90(data_frame):
     all_over_90 = data_frame.groupby('standard_name').filter(
-        lambda x: (x['completeness'] >= 0.900).all())
+        lambda x: (len(x) >= 2)).query('completeness >= 0.900')
     return all_over_90.loc[
         all_over_90.sort_values(by=['completeness'], ascending=False).groupby('standard_name').mixed_counts.idxmin()]
 
@@ -193,7 +193,8 @@ def main():
 
         if args.metadata is not None:
             with_metadata = pd.merge(pd.read_csv(args.metadata), final_frame, how='inner', left_on='WGS_Id',
-                                     right_on='sample_name').drop(['sample_name', 'standard_name', 'genome_completeness'], axis=1)
+                                     right_on='sample_name').drop(['sample_name', 'standard_name',
+                                                                   'genome_completeness'], axis=1)
             with_metadata.sort_values(by=['WGS_Id']).to_csv("all_repeats_w_metadata.csv", index=False)
         else:
             final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv("all_repeats.csv",
