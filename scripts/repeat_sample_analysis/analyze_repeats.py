@@ -35,11 +35,12 @@ def filter_first_frame(data_frame_1, data_frame_2):
 # create a dataframe that contains only repeat groups where all samples are above 90% completeness
 # select the one with the lowest number of mixed counts. in the case of a tie, select the one with higher
 # completeness
-def whole_group_over_90(data_frame):
-    all_over_90 = data_frame.groupby('standard_name').filter(
-        lambda x: (len(x) >= 2)).query('completeness >= 0.900')
-    return all_over_90.loc[
-        all_over_90.sort_values(by=['completeness'], ascending=False).groupby('standard_name').mixed_counts.idxmin()]
+def whole_group_over_threshold(data_frame):
+    all_over_threshold = data_frame.groupby('standard_name').filter(
+        lambda x: (len(x) >= 2)).query('completeness >= 0.850')
+    return all_over_threshold.loc[
+        all_over_threshold.sort_values(by=['completeness'], ascending=False).groupby(
+            'standard_name').mixed_counts.idxmin()]
 
 
 def main():
@@ -147,7 +148,7 @@ def main():
             print("PASSED: All samples have at least one partner sample for comparison")
 
         # filter all repeat groups where the coverage is over 90%
-        final_frame_over_90 = whole_group_over_90(get_standard_name(final_frame))
+        final_frame_over_90 = whole_group_over_threshold(get_standard_name(final_frame))
 
         # get thw lowest N counts for samples that were not in the both 90% category
         # if a sample of any of its partners is in the over 90% category, do not include them in the
@@ -155,9 +156,15 @@ def main():
         min_frame_unfiltered = get_higher_completeness_grouping(get_standard_name(final_frame))
         min_frame_filtered = filter_first_frame(min_frame_unfiltered, final_frame_over_90)
 
+        # merge the total SNP counts from snp dists into the final frame
+        # final_frame = final_frame.merge(new_frame, left_on="sample_name", right_on="sam_1").drop(
+        # ['sam_1', 'comparing'], axis=1)
+
         # if the sample is in either of the minimum frames, do not exclude
-        final_frame["Exclude_from_analysis"] = np.where((final_frame["sample_name"].isin
+        final_frame["Exclude_from_analysis"] = np.where((final_frame["identical_called_snps"] == "Y") &
+                                                        (final_frame["sample_name"].isin
                                                          (min_frame_filtered["sample_name"])) |
+                                                        (final_frame["identical_called_snps"] == "Y") &
                                                         (final_frame["sample_name"].isin
                                                          (final_frame_over_90["sample_name"])), "N", "Y")
 
@@ -176,23 +183,26 @@ def main():
                                                                 np.where((final_frame['identical_called_snps'] == "Y") &
                                                                          (final_frame['mixed_counts'] > 2) &
                                                                          (final_frame["Exclude_from_analysis"] == "Y"),
-                                                                         "repeat- SNP mismatch- more than 2 "
-                                                                         "mixed sites different",
+                                                                         "repeat- no SNP mismatch- more than 2 "
+                                                                         "mixed sites",
                                                                          np.where((final_frame['identical_called_snps']
                                                                                    == "N") &
                                                                                   (final_frame['mixed_counts'] <= 2),
                                                                                   "repeat- SNP mismatch - "
-                                                                                  "non identical",
+                                                                                  "2 or fewer mixed sites",
                                                                                   np.where((final_frame
                                                                                             ['identical_called_snps'] ==
                                                                                             "N") &
                                                                                            (final_frame['mixed_counts']
                                                                                             > 2),
                                                                                            "repeat- SNP mismatch -"
-                                                                                           "sample mix-up", ""))))
+                                                                                           "3 or more mixed sites", ""))))
 
         if args.metadata is not None:
-            with_metadata = pd.merge(pd.read_csv(args.metadata), final_frame, how='inner', left_on='WGS_Id',
+            with_metadata = pd.merge(pd.read_csv(args.metadata).drop(['Exclude_from_analysis',
+                                                                      'Exclude_from_analysis_details',
+                                                                      'Exclude_from_analysis_category'], axis=1),
+                                     final_frame, how='inner', left_on='WGS_Id',
                                      right_on='sample_name').drop(['sample_name', 'standard_name',
                                                                    'genome_completeness'], axis=1)
             with_metadata.sort_values(by=['WGS_Id']).to_csv("all_repeats_w_metadata.csv", index=False)
