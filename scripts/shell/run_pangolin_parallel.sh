@@ -1,4 +1,9 @@
 
+# positional arg 1 - multi fasta (not alignment) of sequences
+# positional argument 2 - output pangolin CSV file
+# positional argument 3- include usher or not (add argument with any string to confirm)
+# requires pyfasta through pip
+
 start=`date +%s`
 
 rm -rf splits/ temp_lin/
@@ -22,9 +27,14 @@ conda activate pangolin
 
 mkdir -p temp_lin
 
-ls splits/*.fa | xargs -n 1 basename | parallel -j $(nproc) 'pangolin splits/{} --outfile temp_lin/{}.csv'
+if [ ! -z $3 ] 
+then 
+    ls splits/*.fa | xargs -n 1 basename | parallel -j $(nproc) 'pangolin splits/{} --outfile temp_lin/{}.csv --threads 2 --usher'
+else
+    ls splits/*.fa | xargs -n 1 basename | parallel -j $(nproc) 'pangolin splits/{} --outfile temp_lin/{}.csv --threads 2'
+fi
 
-awk '(NR == 1) || (FNR > 1)' temp_lin/*.csv > lineage_report_cat.csv
+awk '(NR == 1) || (FNR > 1)' temp_lin/*.csv > $2
 
 rm -r splits/ temp_lin/
 
