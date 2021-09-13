@@ -67,13 +67,13 @@ def main():
     non_identical_frame = new_frame.loc[(new_frame['sam_1'] != new_frame['comparing'])][snp_dists.distance != 0]
 
     diff_name_identical = snp_dists[~snp_dists.sam_1.isin(identical_frame.sam_1)]
-    diff_name_identical = diff_name_identical[~diff_name_identical.sam_1.isin(identical_frame.comparing)]
-    diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1 not in x.comparing,
+    diff_name_identical = diff_name_identical[snp_dists.apply(lambda x: x.sam_1.split('-v', 1)[0] not in x.comparing,
                                                               axis=1)][snp_dists.distance == 0]
     diff_name_identical = diff_name_identical[~diff_name_identical['sam_1'].isin(['MN908947'])]
 
     if len(diff_name_identical) != 0:
-        diff_name_identical.to_csv(os.path.join(args.output_dir, "different_names_identical.csv"), index=False)
+        diff_name_identical.drop_duplicates().to_csv(os.path.join(args.output_dir, "different_names_identical.csv"),
+                                                     index=False)
 
     fasta_sequences = SeqIO.parse(open(args.multi_fasta), 'fasta')
 
