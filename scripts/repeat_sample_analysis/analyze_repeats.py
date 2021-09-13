@@ -3,6 +3,7 @@ from Bio import SeqIO
 import argparse
 import numpy as np
 import warnings
+import os
 
 warnings.filterwarnings("ignore")
 
@@ -31,8 +32,7 @@ def filter_first_frame(data_frame_1, data_frame_2):
                         (~data_frame_1.sample_name.isin(data_frame_2.standard_name)) &
                         (~data_frame_1.standard_name.isin(data_frame_2.standard_name))]
 
-
-# create a dataframe that contains only repeat groups where all samples are above 90% completeness
+# create a dataframe that contains only repeat groups where all samples are above a certain completeness threshold
 # select the one with the lowest number of mixed counts. in the case of a tie, select the one with higher
 # completeness
 def whole_group_over_threshold(data_frame):
@@ -73,7 +73,7 @@ def main():
     diff_name_identical = diff_name_identical[~diff_name_identical['sam_1'].isin(['MN908947'])]
 
     if len(diff_name_identical) != 0:
-        diff_name_identical.to_csv("different_names_identical.csv", index=False)
+        diff_name_identical.to_csv(os.path.join(args.output_dir, "different_names_identical.csv"), index=False)
 
     fasta_sequences = SeqIO.parse(open(args.multi_fasta), 'fasta')
 
@@ -99,7 +99,7 @@ def main():
 
     print("Non-Identical sequences: {}".format(len(non_identical)))
     if len(non_identical) != 0:
-        with open("Non-identical sequences.txt", "w") as handle:
+        with open(os.path.join(args.output_dir, "Non-identical sequences.txt"), "w") as handle:
             for lines in non_identical:
                 handle.write(lines+"\n")
         for elem in non_identical:
@@ -205,10 +205,10 @@ def main():
                                      final_frame, how='inner', left_on='WGS_Id',
                                      right_on='sample_name').drop(['sample_name', 'standard_name',
                                                                    'genome_completeness'], axis=1)
-            with_metadata.sort_values(by=['WGS_Id']).to_csv("all_repeats_w_metadata.csv", index=False)
+            with_metadata.sort_values(by=['WGS_Id']).to_csv(os.path.join(args.output_dir, "all_repeats_w_metadata.csv"), index=False)
         else:
-            final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv("all_repeats.csv",
-                                                                                               index=False)
+            final_frame.sort_values(by=['sample_name']).drop(['standard_name'], axis=1).to_csv(
+                os.path.join(args.output_dir, "all_repeats.csv",), index=False)
 
 
 if __name__ == '__main__':
